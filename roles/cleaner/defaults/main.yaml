@@ -1,21 +1,26 @@
 ---
 registry_server: k8s-registry.internal
-registry_port: 443
-registry_protocol: https
+registry_service: registry
 registry_username: invtable
 registry_password: secret123
-registry_default_keep: 1
-registry_service: registry
+registry_secured: true
 
+default_registry_keep_tags: 1
+default_cleanup_batch_size: 5
+default_dry_run_mode: false
+
+garbage_collection_enabled: true
 garbage_collector_script: /usr/local/bin/garbage-collector
 garbage_collector_log_dir: /var/log/registry-gc
 
-registry_http_url: "{{ registry_protocol }}://{{ registry_server }}:{{ registry_port }}"
+managed_registry_port: "{{ registry_port | default('443') }}"
+managed_registry_protocol: "{{ registry_protocol | default('https') }}"
+managed_registry_secured: "{{ registry_secured | default(True) | bool }}"
+managed_registry_http_url: "{{ managed_registry_protocol }}://{{ registry_server }}:{{ managed_registry_port }}"
 
-managed_dry_run_mode: "{{ dry_run_mode | default(False) | bool }}"
-managed_cleanup_batch_size: "{{ cleanup_batch_size | default(5) | int }}"
-managed_registry_secured: "{{ ( registry_protocol == 'https') | default(false) | bool }}"
-managed_registry_keep_tags: "{{ (registry_keep_tags | default(registry_default_keep) | int) }}"
+managed_dry_run_mode: "{{ dry_run_mode | default(default_dry_run_mode) | bool }}"
+managed_cleanup_batch_size: "{{ cleanup_batch_size | default(default_cleanup_batch_size) | int }}"
+managed_registry_keep_tags: "{{ (registry_keep_tags | default(default_registry_keep_tags) | int) }}"
 
 managed_registry_folders:
 - name: "library"
@@ -25,4 +30,3 @@ extracted_managed_repos_tags: {}
 unfiltered_reposortories_list: []
 filtered_reposortories_list: []
 images_digests_removal_collection: []
-managed_cleanup_batch_current: 0

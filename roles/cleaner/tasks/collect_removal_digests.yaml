@@ -6,7 +6,7 @@
 
 - name: collect tags metadata from secured registry
   uri:
-    url: "{{ registry_http_url }}/v2/{{ metadata_repo }}/manifests/{{ item }}"
+    url: "{{ managed_registry_http_url }}/v2/{{ metadata_repo }}/manifests/{{ item }}"
     method: GET
     user: "{{ registry_username }}"
     password: "{{ registry_password }}"
@@ -21,7 +21,7 @@
 
 - name: collect tags metadata from insecured registry
   uri:
-    url: "{{ registry_http_url }}/v2/{{ metadata_repo }}/manifests/{{ item }}"
+    url: "{{ managed_registry_http_url }}/v2/{{ metadata_repo }}/manifests/{{ item }}"
     method: GET
     return_content: yes
     status_code: 200,201,302
@@ -81,7 +81,7 @@
 
 - name: collect images digests from secured registry
   uri:
-    url: "{{ registry_http_url }}/v2/{{ item.repo_name }}/manifests/{{ item.repo_tag }}"
+    url: "{{ managed_registry_http_url }}/v2/{{ item.repo_name }}/manifests/{{ item.repo_tag }}"
     method: GET
     headers:
       Accept: "application/vnd.docker.distribution.manifest.v2+json"
@@ -97,7 +97,7 @@
 
 - name: collect images digests from insecured registry
   uri:
-    url: "{{ registry_http_url }}/v2/{{ item.repo_name }}/manifests/{{ item.repo_tag }}"
+    url: "{{ managed_registry_http_url }}/v2/{{ item.repo_name }}/manifests/{{ item.repo_tag }}"
     method: GET
     headers:
       Accept: "application/vnd.docker.distribution.manifest.v2+json"

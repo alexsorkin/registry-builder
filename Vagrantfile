@@ -145,7 +145,7 @@ Vagrant.configure("2") do |config|
           "bootstrap_type" => "origin",
           "skip_downloads" => $skip_downloads,
         }
-    
+
         if "x#{ENV['REGISTRY']}" != "xfalse"
           config.vm.provision "ansible" do |ansible|
             ansible.compatibility_mode = "2.0"

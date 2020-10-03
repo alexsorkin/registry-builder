@@ -35,7 +35,7 @@
 
 - name: collect repositories from secured registry catalog
   uri:
-    url: "{{ registry_http_url }}/v2/_catalog"
+    url: "{{ managed_registry_http_url }}/v2/_catalog"
     method: GET
     headers:
       Accept: "application/json; charset=utf-8"
@@ -49,7 +49,7 @@
 
 - name: collect repositories from insecured registry catalog
   uri:
-    url: "{{ registry_http_url }}/v2/_catalog"
+    url: "{{ managed_registry_http_url }}/v2/_catalog"
     method: GET
     headers:
       Accept: "application/json; charset=utf-8"
@@ -102,7 +102,7 @@
   vars:
     filtered_array_item: "{{ item.name }}"
   uri:
-    url: "{{ registry_http_url }}/v2/{{ filtered_array_item }}/tags/list"
+    url: "{{ managed_registry_http_url }}/v2/{{ filtered_array_item }}/tags/list"
     method: GET
     user: "{{ registry_username }}"
     password: "{{ registry_password }}"
@@ -117,7 +117,7 @@
   vars:
     filtered_array_item: "{{ item.name }}"
   uri:
-    url: "{{ registry_http_url }}/v2/{{ filtered_array_item }}/tags/list"
+    url: "{{ managed_registry_http_url }}/v2/{{ filtered_array_item }}/tags/list"
     method: GET
     status_code: 200,201,302
   register: images_tags
@@ -171,17 +171,24 @@
   command: /bin/true
   notify:
   - deleting images selected for removal
+  - handle registry garbage collection
+  when:
+    - ( images_digests_removal_collection | default([]) | list | length ) > 0
+    - not (managed_dry_run_mode | default(False) | bool)
+
+- name: handle registry garbage collection
+  command: /bin/true
+  notify:
   - stop registry service for cold gc
   - ensure garbage collector log dir
   - execute garbage collector script
   - start registry service
   when:
-    - ( images_digests_removal_collection | default([]) | list | length ) > 0
-    - not (managed_dry_run_mode | default(False) | bool)
+  - garbage_collection_enabled
 
 - name: deleting images selected for removal
   uri:
-    url: "{{ registry_http_url }}/v2/{{ item.repo_name }}/manifests/{{ item.image_digest }}"
+    url: "{{ managed_registry_http_url }}/v2/{{ item.repo_name }}/manifests/{{ item.image_digest }}"
     method: DELETE
     user: "{{ registry_username }}"
     password: "{{ registry_password }}"

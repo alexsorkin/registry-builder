@@ -1,57 +1,76 @@
 PROJECT_VERSION = 0.0.9
 
-DEFAULT_BOOT_REGISTRY_HOST = 172.17.8.11
-DEFAULT_BOOT_REGISTRY_USER = innvtable
-DEFAULT_BOOT_REGISTRY_PASS = secret123
+DEFAULT_REGISTRY_SERVER = k8s-registry.internal
+DEFAULT_REGISTRY_USER = invtable
+DEFAULT_REGISTRY_PASS = secret123
+DEFAULT_REGISTRY_SECURED = true
+DEFAULT_REGISTRY_PORT = 443
+DEFAULT_DRY_RUN_MODE = false
 
 BUILD_ARGS =
 
-# Registry address, default 172.17.8.11
-ifneq ($(strip $(BOOT_REGISTRY)),)
-  BUILD_ARGS += boot_registry_address: $(BOOT_REGISTRY);
+# Registry server, default k8s-registry.internal
+ifneq ($(strip $(REGISTRY_SERVER)),)
+  BUILD_ARGS += registry_server: $(REGISTRY_SERVER);
 else
-  BOOT_REGISTRY = $(DEFAULT_BOOT_REGISTRY)
-  BUILD_ARGS += boot_registry_address: $(BOOT_REGISTRY);
+  REGISTRY_SERVER = $(DEFAULT_REGISTRY_SERVER)
+  BUILD_ARGS += registry_server: $(REGISTRY_SERVER);
 endif
 
 # Registry credentials
-ifneq ($(strip $(BOOT_REGISTRY_USER)),)
-  BUILD_ARGS += boot_registry_user: $(BOOT_REGISTRY_USER);
+ifneq ($(strip $(REGISTRY_USER)),)
+  BUILD_ARGS += registry_username: $(REGISTRY_USER);
 else
-  BOOT_REGISTRY_USER = $(DEFAULT_BOOT_REGISTRY_USER)
-  BUILD_ARGS += boot_registry_user: $(BOOT_REGISTRY_USER);
+  REGISTRY_USER = $(DEFAULT_REGISTRY_USER)
+  BUILD_ARGS += registry_username: $(REGISTRY_USER);
 endif
-ifneq ($(strip $(BOOT_REGISTRY_PASS)),)
-  BUILD_ARGS += boot_registry_pass: $(BOOT_REGISTRY_PASS);
+ifneq ($(strip $(REGISTRY_PASS)),)
+  BUILD_ARGS += registry_password: $(REGISTRY_PASS);
 else
-  BOOT_REGISTRY_PASS = $(DEFAULT_BOOT_REGISTRY_PASS)
-  BUILD_ARGS += boot_registry_pass: $(BOOT_REGISTRY_PASS);
+  REGISTRY_PASS = $(DEFAULT_REGISTRY_PASS)
+  BUILD_ARGS += registry_password: $(REGISTRY_PASS);
 endif
 
+# Registry lifecycle parameters
+ifneq ($(strip $(REGISTRY_PORT)),)
+  BUILD_ARGS += registry_port: $(REGISTRY_PORT);
+else
+  REGISTRY_PORT = $(DEFAULT_REGISTRY_PORT)
+  BUILD_ARGS += registry_port: $(REGISTRY_PORT);
+endif
+ifeq ($(REGISTRY_SECURED), true)
+  BUILD_ARGS += registry_secured: true;
+else
+  REGISTRY_SECURED = $(DEFAULT_REGISTRY_SECURED)
+  BUILD_ARGS += registry_secured: $(REGISTRY_SECURED);
+endif
+ifeq ($(DRY_RUN), true)
+  BUILD_ARGS += dry_run_mode: true;
+else
+  DRY_RUN = $(DEFAULT_DRY_RUN_MODE)
+  BUILD_ARGS += dry_run_mode: $(DRY_RUN);
+endif
+DEBUG_LEVEL =
 ifneq ($(strip $(DEBUG_LEVEL)),)
-  DEBUG_LEVEL = $(DEBUG_LEVEL);
+  DEBUG_LEVEL = $(DEBUG_LEVEL)
 endif
-
 ifeq ($(strip $(ANSIBLE_USER)),)
   ANSIBLE_USER = vagrant
 endif
 
-BUILD_ARGS += ansible_total_nodes: 1; 
-
-.PHONY: registry
+.PHONY: registry regclean
 
 all: prepare registry
 
 prepare:
 	echo "---" > _environment.yml
 	echo "$(BUILD_ARGS)"|tr ";" "\n"|sed 's/\ //g'|sed 's/\:/\:\ /g' >> _environment.yml
-	echo  >> _environment.yml
 
 registry: prepare
 	vagrant up --no-provision
 	vagrant provision
 
-provision:
+provision: prepare
 	vagrant provision
 
 status:
@@ -60,5 +79,5 @@ status:
 purge:
 	vagrant destroy -f
 
-cleanreg:
-	ansible-playbook $(DEBUG_LEVEL) -i inventory/vagrant_ansible_inventory --limit=registry cleaner.yaml
+regclean: prepare
+	ansible-playbook $(DEBUG_LEVEL) -i inventory/vagrant_ansible_inventory --limit=registry -e "@_environment.yml" cleaner.yaml
