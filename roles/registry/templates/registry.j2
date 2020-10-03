@@ -1,0 +1,23 @@
+#!/bin/bash
+
+if [[ "x$(docker network ls |grep registry |awk '{print $1}')" == "x" ]]; then
+  echo Creating registry network..
+  docker network create registry
+fi
+
+/usr/bin/docker run \
+  -p 443:{{ registry_port }} \
+  --network=registry \
+  --restart=on-failure:5 \
+  --memory=256M \
+  --oom-kill-disable \
+  --blkio-weight=1000 \
+  --name=registry \
+  -v {{ registry_crt_dir }}:/certs:ro \
+  -v {{ registry_htpasswd_dir }}:/auth:ro \
+  -v {{ registry_mount_path }}:/var/lib/registry:rw \
+  -v /etc/docker/registry/registry.yaml:/etc/docker/registry/config.yml:ro \
+  -e REGISTRY_HTTP_TLS_CERTIFICATE=/certs/fullchain.crt \
+  -e REGISTRY_HTTP_TLS_KEY=/certs/registry.key \
+  {{ service_image }} \
+  "$@"

@@ -1,0 +1,19 @@
+[Unit]
+Description=NFS Server Docker wrapper
+Wants=docker.socket
+After=docker.service
+
+[Service]
+User=root
+PermissionsStartOnly=true
+ExecStartPre=-/bin/mkdir -p /var/lib/exports
+ExecStartPre=-/usr/bin/docker rm -f nfsserver
+ExecStartPre=-/bin/systemctl stop {{ disable_services | join(' ') }}
+ExecStart=/usr/local/bin/nfsd
+ExecStop=/usr/bin/docker stop nfsserver
+Restart=always
+RestartSec=15s
+TimeoutStartSec=30s
+
+[Install]
+WantedBy=multi-user.target

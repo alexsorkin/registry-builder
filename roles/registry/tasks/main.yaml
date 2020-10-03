@@ -1,0 +1,119 @@
+---
+- name: Ensure target files folders
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+  - "{{ registry_htpasswd_dir }}"
+  - "{{ registry_crt_dir }}"
+  - "{{ registry_ca_dir }}"
+  - "/etc/docker/registry"
+
+- name: Process Registry Templates
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+  with_items:
+    - { src: registry.j2, dest: /usr/local/bin/registry, mode: '0700' }
+    - { src: registry.service.j2, dest: /etc/systemd/system/registry.service, mode: '0644' }
+    - { src: create_network.sh.j2, dest: /usr/local/bin/create_network.sh, mode: '0700' }
+    - { src: registry.yaml.j2, dest: /etc/docker/registry/registry.yaml, mode: '0644' }
+  register: registry_service
+
+- block:
+  - name: Pull registry image
+    shell: |
+      docker pull {{ service_image }}
+  - name: Check htpasswd file
+    stat:
+      path: "{{ registry_htpasswd_dir }}/htpasswd"
+    register: htpsswd_check
+  - name: Create Registry Access user
+    shell: |
+      htpasswd -Bbn \
+        {{ registry_username }} {{ registry_password }} \
+        > {{ registry_htpasswd_dir }}/htpasswd
+    register: htpasswd_update
+    when:
+    - htpsswd_check.stat.exists == False
+  - name: Change htpasswd file mode
+    file:
+      path: "{{ registry_htpasswd_dir }}/htpasswd"
+      mode: 0644
+
+- block:
+  - name: Check registry ca cert file
+    stat:
+      path: "{{ registry_ca_dir }}/ca.crt"
+    register: registry_ca_file
+  - name: Process ca-script template
+    template:
+      src: create_certs_crt.sh.j2
+      dest: /usr/local/bin/create_certs_crt.sh
+      mode: 0700
+    when:
+    - registry_ca_file is defined
+    - registry_ca_file.stat.exists == False
+  - name: Preform one time registry ca creation
+    shell: |
+      /usr/local/bin/create_certs_crt.sh
+    environment:
+      CA_CRT_DIR: "{{ registry_ca_dir }}"
+      SRV_CRT_DIR: "{{ registry_crt_dir }}"
+      ALLDOMAINS: "{{ registry_domains | join(',') }}"
+    when:
+    - registry_ca_file is defined
+    - registry_ca_file.stat.exists == False
+
+- block:
+  - name: Popluate ca certificate anchor
+    copy:
+      src: "{{ registry_ca_dir }}/ca.crt"
+      dest: /etc/pki/ca-trust/source/anchors/registry_ca.crt
+      remote_src: yes
+    register: cert_anchor_populated
+  - name: Import proxy ca certificate
+    shell: |
+      update-ca-trust extract
+    when:
+    - cert_anchor_populated is defined
+    - cert_anchor_populated is changed
+
+- block:
+  - name: Reload systemd, pull registry image
+    shell: | 
+      systemctl daemon-reload
+      docker pull {{ service_image }}
+  - name: Enable registry service
+    service:
+      name: "{{ item }}" 
+      state: restarted
+      enabled: yes
+    register: registry_restarted
+    with_items:
+    - 'registry'
+  - name: Make pause 2 seconds for service to start
+    pause:
+      seconds: 2
+      prompt: "Waiting for services restart"
+  when:
+  - (registry_service is defined and registry_service is changed) or
+    (cert_anchor_populated is defined and cert_anchor_populated is changed)
+
+#- name: Wait for Registry Service
+#  uri:
+#    url: "{{ item }}"
+#    follow_redirects: all
+#    method: GET
+#    headers:
+#      Accept: "application/json; text/html"
+#  register: result
+#  until: result.status == 200
+#  retries: 10
+#  delay: 3
+#  with_items:
+#  - https://localhost:{{ registry_port }}
+
+#  when:
+#  - registry_restarted is defined and registry_restarted is changed

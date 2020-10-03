@@ -1,0 +1,32 @@
+---
+service_image: tiangolo/docker-registry-proxy:latest
+proxy_mount_path: /var/lib/proxycache
+proxy_mount_ca: /etc/docker/proxy/ca
+proxy_mount_crts: /etc/docker/proxy/certs
+proxy_cache_max_size: 160g
+proxy_expose_port: 8080
+proxy_container_port: 3128
+
+proxy_domains:
+- rhost: k8s.gcr.io
+  hcheck:
+    url: https://k8s.gcr.io
+- rhost: gcr.io
+  hcheck:
+    url: https://gcr.io
+- rhost: quay.io
+  hcheck:
+    url: https://quay.io
+- rhost: docker.bintray.io
+  hcheck:
+    enabled: false
+    url: https://docker.bintray.io/v2/token
+- rhost: dl.bintray.com
+  hcheck:
+    enabled: false
+
+bintray_static_host: docker.bintray.io
+bintray_static_ip: "108.168.158.236"
+
+proxy_domain_rhosts: []
+proxy_domain_hchecks: []

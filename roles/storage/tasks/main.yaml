@@ -1,0 +1,6 @@
+---
+- name: Reconfigure Docker Storage
+  import_tasks: datavg.yaml
+  when:
+  - datavg_createvg | default(False)
+  - (datavg_devices|default([])) | length > 0

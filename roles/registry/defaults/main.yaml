@@ -1,0 +1,19 @@
+---
+service_image: registry:2
+#htpasswd_image: bitnami/apache
+registry_mount_path: /var/lib/registry
+registry_ca_dir: /etc/docker/registry/ca
+registry_crt_dir: /etc/docker/registry/certs
+registry_htpasswd_dir: /etc/docker/registry/auth
+
+registry_username: invtable
+registry_password: secret123
+
+registry_port: 443
+registry_domains:
+  - "DNS:localhost"
+  - "DNS:registry"
+  - "DNS:{{ inventory_hostname }}"
+  - "DNS:{{ host_fqdn }}"
+  - "IP:127.0.0.1"
+  - "IP:{{ ip }}"

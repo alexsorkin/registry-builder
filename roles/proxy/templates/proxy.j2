@@ -1,0 +1,29 @@
+#!/bin/bash
+
+#  --add-host {{ host_fqdn }}:{{ ip }} \
+
+if [[ "x$(docker network ls |grep registry |awk '{print $1}')" == "x" ]]; then
+  echo Creating registry network..
+  docker network create registry
+fi
+
+/usr/bin/docker run \
+  --network=registry \
+  --restart=on-failure:5 \
+  --memory=256M \
+  --oom-kill-disable \
+  --blkio-weight=1000 \
+  --name=proxy \
+  -p {{ proxy_expose_port }}:{{ proxy_container_port }} \
+  -v {{ proxy_mount_path }}:/docker_mirror_cache:rw \
+  -v {{ proxy_mount_ca }}:/ca:rw \
+  -v {{ proxy_mount_crts }}:/certs:rw \
+  -e REGISTRIES="{{ proxy_domain_hosts | join(' ') }}" \
+  -e CACHE_MAX_SIZE={{ proxy_cache_max_size }} \
+  {{ service_image }} \
+  "$@"
+
+#  -e AUTH_REGISTRIES_DELIMITER=";;;" \
+#  -e AUTH_REGISTRY_DELIMITER=":::" \
+#  --link registry:proxy_local_domain \
+#  -e AUTH_REGISTRIES="proxy_local_domain:::registry_username:::registry_password" \

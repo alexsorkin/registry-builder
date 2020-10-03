@@ -1,0 +1,121 @@
+---
+- name: Put SELinux in permissive mode
+  selinux:
+    policy: targeted
+    state: permissive
+
+- name: Ensure ansible tmp folder
+  file:
+    path: /root/.ansible/tmp
+    state: directory
+    mode: 0700
+
+- name: Ensure the default en_US.utf-8 LC
+  lineinfile:
+    path: /etc/environment
+    line: "{{ item }}"
+  with_items:
+  - 'LANG=en_US.utf-8'
+  - 'LC_ALL=en_US.utf-8'
+
+- name: Set Server Hostname 
+  hostname:
+    name: "{{ inventory_hostname }}"
+
+- name: Populate Hosts File
+  lineinfile: dest=/etc/hosts regexp='.*{{ item.key }}$' line="{{ hostvars[item.key].ip }} {{ item.key }} {{ item.value }}" state=present
+  when: hostvars[item.key].ip is defined
+  with_items: 
+  - { key: "{{ inventory_hostname }}", value: "{{ host_fqdn }}" }
+
+- block:
+  - name: Stopping 1st time unneeded services
+    service:
+      name: "{{ item }}"
+      state: stopped
+    with_items: "{{ disable_services }}"
+  - name: Disabling 1st time unneeded services
+    service:
+      name: "{{ item }}"
+      enabled: false
+    changed_when: False
+    with_items: "{{ disable_services }}"
+
+- name: Upgrade all packages, excluding kernel & docker
+  yum:
+    name: '*'
+    state: latest
+    exclude: kernel*,docker*
+  when:
+  - manage_packages | default(True)
+
+- name: Install epel-release
+  yum:
+    name: "{{ default_epel_rpm_url }}"
+    state: present
+  when:
+  - manage_packages | default(True)
+
+- name: Upgrade epel-release
+  yum:
+    name: 'epel-release'
+    state: latest
+  when:
+  - manage_packages | default(True)
+
+- name: Install Docker prerequisites
+  yum:
+    name: "{{ common_required_pkgs | union (extra_packages) | union (docker_storage_pkgs) }}"
+    state: latest
+  when:
+  - manage_packages | default(True)
+  - manage_docker | default(True)
+
+- name: Download Docker CE repository
+  get_url:
+    url: "{{ default_docker_re_repo_url }}"
+    dest: /etc/yum.repos.d/docer-ce.repo
+  when:
+  - manage_packages | default(True)
+  - manage_docker | default(True)
+
+- name: Install Docker CE packages
+  yum:
+    name: ["docker-ce-{{ docker_ce_version | default(default_docker_ce_version) }}", "docker-ce-cli-{{ docker_ce_version | default(default_docker_ce_version) }}", 'containerd.io']
+    state: present
+  when:
+  - manage_packages | default(True)
+  - manage_docker | default(True)
+
+#- name: Clean YUM Metadata
+#  command: yum clean metadata
+#  args:
+#    warn: no
+#  changed_when: no
+
+- name: Enable iSCSI service
+  service:
+    name: iscsid
+    state: started
+    enabled: yes
+
+- name: Load kernel modules
+  modprobe:
+    name: "{{ item }}"
+    state: present
+  with_items:
+  - dm_mod
+  - fuse
+  - iscsi_tcp
+  - nfs
+  - nfsd
+
+- name: Make modules permanent
+  copy:
+    dest: /etc/modules-load.d/102-modules.conf
+    content: |
+      dm_mod
+      fuse
+      iscsi_tcp
+      nfs
+      nfsd

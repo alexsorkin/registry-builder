@@ -1,0 +1,12 @@
+---
+- hosts: registry
+  any_errors_fatal: "{{ any_errors_fatal | default(true) }}"
+  roles:
+  - { role: bootstrap }
+  - { role: storage }
+  - { role: docker }
+  - { role: registry }
+  - { role: nfsserver }
+  - { role: proxy }
+
+#    - { role: consul, when: deploy_consul_agent | default(false) }

@@ -1,0 +1,48 @@
+---
+default_epel_rpm_url: 'https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm'
+default_docker_ce_version: '18.09.9-3.el7'
+default_docker_re_repo_url: 'https://download.docker.com/linux/centos/docker-ce.repo'
+
+disable_services:
+  - nfs-server.service
+  - rpcbind.socket
+  - rpcbind.target
+  - rpcbind
+  - rpc_pipefs.target
+  - rpc-rquotad.service
+  - rpc-statd.service
+  - rpc-statd-notify.service
+  - rpcidmapd.service
+  - rpcgssd.service
+  - rpc-gssd.service
+  - firewalld
+
+extra_packages: 
+  - inotify-tools
+  - bc
+  - nmap-ncat
+  - net-tools
+  - lsof
+  - jq
+  - wget
+  - fuse
+  - s3fs-fuse
+  - iscsi-initiator-utils
+
+common_required_pkgs:
+  - python-httplib2
+  - python-pip
+  - python-passlib
+  - PyYAML
+  - curl
+  - rsync
+  - bash-completion
+  - socat
+  - unzip
+  - gzip
+  - bzip2
+  - httpd-tools
+
+docker_storage_pkgs:
+  - lvm2
+  - device-mapper-persistent-data

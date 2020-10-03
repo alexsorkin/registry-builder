@@ -1,0 +1,6 @@
+#!/bin/bash
+
+if [[ "x$(docker network ls |grep registry |awk '{print $1}')" == "x" ]]; then
+  echo Creating registry network..
+  docker network create registry
+fi

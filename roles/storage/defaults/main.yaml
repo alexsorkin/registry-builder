@@ -1,0 +1,23 @@
+---
+datavg_createvg: true
+datavg_devices: ['/dev/sdb']
+
+docker_volume_type: xfs
+docker_mount_path: /var/lib/docker
+docker_force_resizefs: yes
+docker_volume_size: '5%PVS'
+
+registry_volume_type: xfs
+registry_mount_path: /var/lib/registry
+registry_force_resizefs: yes
+registry_volume_size: '30%PVS'
+
+proxy_volume_type: xfs
+proxy_mount_path: /var/lib/proxycache
+proxy_force_resizefs: yes
+proxy_volume_size: '30%PVS'
+
+nfsserver_volume_type: xfs
+nfsserver_mount_path: /var/lib/exports
+nfsserver_force_resizefs: yes
+nfsserver_volume_size: '30%PVS'

@@ -1,0 +1,60 @@
+---
+- name: Process NFS Server Templates
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+  with_items:
+    - { src: nfsd.j2, dest: /usr/local/bin/nfsd, mode: '0700' }
+    - { src: nfsd.service.j2, dest: /etc/systemd/system/nfsd.service, mode: '0644' }
+  register: nfsd_service
+
+- name: Populate generic exports file
+  copy:
+    dest: /etc/exports
+    content: |
+      /exports *(rw,sync,no_subtree_check)
+  register: nfsd_exports
+
+- block:
+  - name: Stopping host rpcbind services
+    service:
+      name: "{{ item }}"
+      state: stopped
+    with_items: "{{ disable_services }}"
+    register: rpcbind_stopped
+  - name: Disabling host rpcbind services
+    service:
+      name: "{{ item }}"
+      enabled: false
+    with_items: "{{ disable_services }}"
+    changed_when: False
+    register: rpcbind_disabled
+
+- name: Enable NFS Server Services
+  block:
+    - name: Reload systemd, pull registry image
+      shell: | 
+        systemctl daemon-reload
+        docker pull {{ service_image }}
+    - name: Enable registry service
+      service:
+        name: "{{ item }}" 
+        state: restarted
+        enabled: yes
+      with_items:
+      - 'nfsd'
+  when:
+  - (nfsd_service is defined and nfsd_service is changed) or 
+    (nfsd_exports is defined and nfsd_exports is changed) or 
+    (rpcbind_stopped is defined and rpcbind_stopped is changed)
+
+#- name: Wait for NFS Server Service
+#  uri:
+#    url: "{{ item }}"
+#  register: result
+#  until: result.status == 200
+#  retries: 20
+#  delay: 6
+#  with_items:
+#    - http://localhost:5000/v2/_catalog

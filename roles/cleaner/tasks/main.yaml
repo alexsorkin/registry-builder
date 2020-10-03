@@ -1,0 +1,117 @@
+---
+- name: Collect repositories from secured registry catalog
+  uri:
+    url: "{{ registry_http_url }}/v2/_catalog"
+    method: GET
+    headers:
+      Accept: "application/json; charset=utf-8"
+    user: "{{ registry_username }}"
+    password: "{{ registry_password }}"
+    force_basic_auth: yes
+    return_content: yes
+    status_code: 200,201,302
+  register: list_repositories
+  ignore_errors: yes
+  when:
+  - managed_registry_secured
+
+- name: Debug raw catalog retieval result
+  vars:
+    raw_catalog_list_result: "{{ list_repositories.json }}"
+  debug:
+    var: raw_catalog_list_result
+    verbosity: 2
+  when:
+  - list_repositories is success
+
+- name: Produce unfiltered dict with retrieved repos
+  set_fact:
+    unfiltered_reposortories_list: "{{
+      unfiltered_reposortories_list + [
+        { 'name': item }
+      ]
+    }}"
+  with_items:
+  - "{{ list_repositories.json.repositories | default([]) }}"
+  when:
+  - list_repositories is success
+
+- name: Produce filtered repositories array
+  vars:
+    repo_search_pattern: "{{ item.name }}/"
+  set_fact:
+    filtered_reposortories_list: "{{ filtered_reposortories_list +
+        (unfiltered_reposortories_list | selectattr('name', 'search', repo_search_pattern) | list)
+    }}"
+  with_items:
+  - "{{ managed_registry_folders | list }}"
+
+- name: Debug filtered repositories array
+  vars:
+    filtered_array_item: "{{ item }}"
+  debug:
+    var: filtered_array_item
+    verbosity: 1
+  with_items:
+  - "{{ (filtered_reposortories_list | default([]) | list ) }}"
+
+- name: Collect images tags from secured registry
+  vars:
+    filtered_array_item: "{{ item.name }}"
+  uri:
+    url: "{{ registry_http_url }}/v2/{{ filtered_array_item }}/tags/list"
+    method: GET
+    user: "{{ registry_username }}"
+    password: "{{ registry_password }}"
+    force_basic_auth: yes
+    status_code: 200,201,302
+  register: images_tags
+  ignore_errors: yes
+  with_items:
+  - "{{ (filtered_reposortories_list | default([]) | list ) }}"
+  
+- name: Extract repos tags maps from retrived json
+  set_fact:
+    extracted_managed_repos_tags: "{{ extracted_managed_repos_tags | combine({ item.json.name: item.json.tags }) }}"
+  with_items:
+  - "{{ images_tags.results | default([]) }}"
+  when:
+    - images_tags is success
+  no_log: True
+  
+- name: Debug extracted repos tags
+  debug:
+    var: extracted_managed_repos_tags
+    verbosity: 1
+
+- name: Debug outer loop data for tag metadata collector
+  debug:
+    var: item
+    verbosity: 2
+  with_items: "{{ extracted_managed_repos_tags | dict2items }}"
+  when:
+  - images_tags is success
+
+- name: Include nested per repo tag metadata collector
+  vars:
+    metadata_repo: "{{ image_repo.key }}"
+    metadata_tags: "{{ image_repo.value }}"
+  include_tasks: collect_removal_digests.yaml
+  with_items: "{{ extracted_managed_repos_tags | dict2items }}"
+  loop_control:
+    loop_var: image_repo
+  when:
+    - images_tags is success
+
+- name: Debuging global removal collection
+  debug:
+    var: images_digests_removal_collection
+#    verbosity: 1
+
+- name: Notify digests removal handlers
+  command: /bin/true
+  notify:
+  - handle registry cleanup
+  when:
+    - ( images_digests_removal_collection | default([]) | list | length ) > 0
+    - not (managed_dry_run_mode | default(False) | bool)

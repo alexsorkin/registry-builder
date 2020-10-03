@@ -1,0 +1,7 @@
+---
+boot_registry_address: 
+boot_registry_user: innvtable
+boot_registry_pass: secret123
+ansible_total_nodes: 1
+
+

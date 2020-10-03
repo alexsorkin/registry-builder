@@ -1,0 +1,172 @@
+---
+- name: handle secured digests collection
+  command: /bin/true
+  notify:
+  - collect repositories from secured registry catalog
+  - debug raw catalog retieval result
+  - produce unfiltered dict with retrieved repos
+  - produce filtered repositories array
+  - debug filtered repositories array
+  - collect images tags from secured registry
+  - extract repos tags maps from retrived json
+  - debug extracted repos tags
+  - debug outer loop data for tag metadata collector
+  - include nested per repo tag metadata collector
+  - debug global removal collection
+
+- name: collect repositories from secured registry catalog
+  uri:
+    url: "{{ registry_http_url }}/v2/_catalog"
+    method: GET
+    headers:
+      Accept: "application/json; charset=utf-8"
+    user: "{{ registry_username }}"
+    password: "{{ registry_password }}"
+    force_basic_auth: yes
+    return_content: yes
+    status_code: 200,201,302
+  register: list_repositories
+  ignore_errors: yes
+  when:
+  - managed_registry_secured
+
+- name: debug raw catalog retieval result
+  vars:
+    raw_catalog_list_result: "{{ list_repositories.json }}"
+  debug:
+    var: raw_catalog_list_result
+    verbosity: 2
+  when:
+  - list_repositories is success
+
+- name: produce unfiltered dict with retrieved repos
+  set_fact:
+    unfiltered_reposortories_list: "{{
+      unfiltered_reposortories_list + [
+        { 'name': item }
+      ]
+    }}"
+  with_items:
+  - "{{ list_repositories.json.repositories | default([]) }}"
+  when:
+  - list_repositories is success
+
+- name: produce filtered repositories array
+  vars:
+    repo_search_pattern: "{{ item.name }}/"
+  set_fact:
+    filtered_reposortories_list: "{{ filtered_reposortories_list +
+        (unfiltered_reposortories_list | selectattr('name', 'search', repo_search_pattern) | list)
+    }}"
+  with_items:
+  - "{{ managed_registry_folders | list }}"
+
+- name: debug filtered repositories array
+  vars:
+    filtered_array_item: "{{ item }}"
+  debug:
+    var: filtered_array_item
+    verbosity: 1
+  with_items:
+  - "{{ (filtered_reposortories_list | default([]) | list ) }}"
+
+- name: collect images tags from secured registry
+  vars:
+    filtered_array_item: "{{ item.name }}"
+  uri:
+    url: "{{ registry_http_url }}/v2/{{ filtered_array_item }}/tags/list"
+    method: GET
+    user: "{{ registry_username }}"
+    password: "{{ registry_password }}"
+    force_basic_auth: yes
+    status_code: 200,201,302
+  register: images_tags
+  ignore_errors: yes
+  with_items:
+  - "{{ (filtered_reposortories_list | default([]) | list ) }}"
+  
+- name: extract repos tags maps from retrived json
+  set_fact:
+    extracted_managed_repos_tags: "{{ extracted_managed_repos_tags | combine({ item.json.name: item.json.tags }) }}"
+  with_items:
+  - "{{ images_tags.results | default([]) }}"
+  when:
+    - images_tags is success
+  no_log: True
+  
+- name: debug extracted repos tags
+  debug:
+    var: extracted_managed_repos_tags
+    verbosity: 1
+
+- name: debug outer loop data for tag metadata collector
+  debug:
+    var: item
+    verbosity: 2
+  with_items: "{{ extracted_managed_repos_tags | dict2items }}"
+  when:
+  - images_tags is success
+
+- name: include nested per repo tag metadata collector
+  vars:
+    metadata_repo: "{{ image_repo.key }}"
+    metadata_tags: "{{ image_repo.value }}"
+  include_tasks: collect_removal_digests.yaml
+  with_items: "{{ extracted_managed_repos_tags | dict2items }}"
+  loop_control:
+    loop_var: image_repo
+  when:
+    - images_tags is success
+
+- name: debug global removal collection
+  debug:
+    var: images_digests_removal_collection
+#    verbosity: 1
+
+
+################################PERFORM DIGEST REMOVAL##############################
+
+- name: handle registry cleanup
+  command: /bin/true
+  notify:
+  - deleting images selected for removal
+  - stop registry service for cold gc
+  - ensure garbage collector log dir
+  - execute garbage collector script
+  - start registry service
+  
+- name: deleting images selected for removal
+  uri:
+    url: "{{ registry_http_url }}/v2/{{ item.repo_name }}/manifests/{{ item.image_digest }}"
+    method: DELETE
+    user: "{{ registry_username }}"
+    password: "{{ registry_password }}"
+    force_basic_auth: yes
+    status_code: 202
+  register: delete_images
+  ignore_errors: yes
+  with_items:
+  - "{{ (images_digests_removal_collection | default([]) | list ) }}"
+
+- name: stop registry service for cold gc
+  shell: |
+    systemctl stop {{ registry_service }}
+  become: yes
+
+- name: ensure garbage collector log dir
+  file:
+    path: "{{ garbage_collector_log_dir }}"
+    state: directory
+    mode: 644
+  become: yes
+
+- name: execute garbage collector script
+  shell: |
+    {{ garbage_collector_script }} > {{ garbage_collector_log_dir }}/garbage-collector.log
+  ignore_errors: yes
+  become: yes
+  
+- name: start registry service
+  shell: |
+    systemctl start {{ registry_service }}
+  become: yes

@@ -1,0 +1,14 @@
+#!/bin/bash
+
+/usr/bin/docker run \
+  -v /etc/exports:/etc/exports:ro \
+  -v {{ nfsserver_mount_path }}:/exports:rw \
+  --restart=on-failure:5 \
+  --net=host \
+  --memory=256M \
+  --oom-kill-disable \
+  --blkio-weight=1000 \
+  --cap-add SYS_ADMIN \
+  --name=nfsserver \
+  {{ service_image }} \
+  "$@"

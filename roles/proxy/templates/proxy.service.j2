@@ -1,0 +1,18 @@
+[Unit]
+Description=Registry Proxy Docker Service
+Wants=docker.socket
+After=docker.service
+
+[Service]
+User=root
+PermissionsStartOnly=true
+ExecStartPre=-/bin/mkdir -p {{ proxy_mount_path }}
+ExecStartPre=-/usr/bin/docker rm -f proxy
+ExecStart=/usr/local/bin/proxy
+ExecStop=/usr/bin/docker stop proxy
+Restart=always
+RestartSec=15s
+TimeoutStartSec=30s
+
+[Install]
+WantedBy=multi-user.target

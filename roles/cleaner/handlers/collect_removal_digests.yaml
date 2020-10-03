@@ -1,0 +1,129 @@
+---
+- name: handle image repository metadata retrieval
+  command: /bin/true
+  notify:
+  - reset local scoped intermidiate collections
+  - collect tags metadata from secured registry
+  - debug retrieved tags metadata content
+  - produce tags array with creation dates
+  - debug tags sorted by creation date
+  - filtering and sorting repos tags array
+  - collect images digests from secured registry
+  - debug retrieved images digests
+  - produce tags array with images digests
+  - debug retrieved images digests for removal
+  - accumulate digests for removal in global array
+
+- name: reset local scoped intermidiate collections
+  set_fact:
+    unsorted_images_tags_collection: []
+    images_digests_tags_collection: []
+
+- name: collect tags metadata from secured registry
+  uri:
+    url: "{{ registry_http_url }}/v2/{{ metadata_repo }}/manifests/{{ item }}"
+    method: GET
+    user: "{{ registry_username }}"
+    password: "{{ registry_password }}"
+    force_basic_auth: yes
+    return_content: yes
+    status_code: 200,201,302
+  register: tags_metadata
+  with_items: "{{ metadata_tags }}"
+  when:
+  - managed_registry_secured
+
+- name: debug retrieved tags metadata content
+  vars:
+    tag_content: "{{ (item.content | from_json) }}"
+  debug:
+    var: tag_content
+    verbosity: 2
+  with_items:
+  - "{{ tags_metadata.results }}"
+  when:
+  - tags_metadata is success
+
+- name: produce tags array with creation dates
+  set_fact:
+    unsorted_images_tags_collection: "{{ 
+      unsorted_images_tags_collection + [
+        {
+          'repo_name': metadata_repo,
+          'repo_tag': (item.content | from_json).tag,
+          'tag_created': ((item.content | from_json).history[0].v1Compatibility | from_json).created
+        }
+      ]
+    }}"
+  with_items:
+  - "{{ tags_metadata.results }}"
+  when:
+    - tags_metadata is success
+  no_log: True
+  
+- name: debug tags sorted by creation date
+  vars:
+    image_tag_dict: "{{ item }}"
+  debug:
+    var: image_tag_dict
+    verbosity: 2
+  with_items: 
+  - "{{ (unsorted_images_tags_collection | default([]) | sort(attribute='tag_created')) | list }}"
+  when:
+  - tags_metadata is success
+
+- name: filtering and sorting repos tags array
+  set_fact:
+    sorted_images_tags_collection: "{{ (unsorted_images_tags_collection | default([]) | sort(attribute='tag_created'))[:-(managed_registry_keep_tags | int)] | list }}"
+
+- name: collect images digests from secured registry
+  uri:
+    url: "{{ registry_http_url }}/v2/{{ item.repo_name }}/manifests/{{ item.repo_tag }}"
+    method: GET
+    headers:
+      Accept: "application/vnd.docker.distribution.manifest.v2+json"
+    user: "{{ registry_username }}"
+    password: "{{ registry_password }}"
+    force_basic_auth: yes
+    status_code: 200,201,302
+  register: filtered_images_digests
+  with_items: "{{ sorted_images_tags_collection | list }}"
+  when:
+  - managed_registry_secured
+
+- name: debug retrieved images digests
+  vars:
+    image_digest_item: "{{ item }}"
+  debug:
+    var: image_digest_item
+    verbosity: 2
+  with_items:
+  - "{{ filtered_images_digests.results }}"
+  when:
+  - filtered_images_digests is success
+
+- name: produce tags array with images digests
+  set_fact:
+    images_digests_tags_collection: "{{ 
+      images_digests_tags_collection + [
+        {
+          'repo_name': metadata_repo,
+          'repo_tag': item.item.repo_tag,
+          'image_digest': item.docker_content_digest
+        }
+      ]
+    }}"
+  with_items:
+  - "{{ filtered_images_digests.results }}"
+  when:
+  - filtered_images_digests is success
+  no_log: True
+
+- name: debug retrieved images digests for removal
+  debug:
+    var: images_digests_tags_collection
+    verbosity: 1
+
+- name: accumulate digests for removal in global array
+  set_fact:
+    images_digests_removal_collection: "{{ (images_digests_removal_collection + images_digests_tags_collection) | list }}"

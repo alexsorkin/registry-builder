@@ -1,0 +1,25 @@
+[Unit]
+Description=Registry Docker Service
+Wants=docker.socket
+After=docker.service
+
+[Service]
+User=root
+PermissionsStartOnly=true
+Environment="CA_CRT_DIR={{ registry_ca_dir }}"
+Environment="SRV_CRT_DIR={{ registry_crt_dir }}"
+Environment="ALLDOMAINS={{ registry_domains | join(',') }}"
+
+ExecStartPre=-/bin/mkdir -p {{ registry_mount_path }}
+ExecStartPre=-/usr/local/bin/create_certs_crt.sh
+ExecStartPre=-/usr/bin/docker rm -f registry
+
+ExecStart=/usr/local/bin/registry
+ExecStop=/usr/bin/docker stop registry
+
+Restart=always
+RestartSec=15s
+TimeoutStartSec=30s
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,140 @@
+---
+- name: Check DockerVG phys devices exists
+  shell: |
+    if [[ x$(/sbin/fdisk -l {{ item }} 2>/dev/null) != x ]]; then
+      exit 0
+    else
+      exit 1
+    fi
+  register: datavg_phys_devices_exists
+  ignore_errors: yes
+  changed_when: False
+  with_items: "{{ datavg_devices }}"
+
+- name: Ensure Data Volume Group if device exists
+  lvg:
+    vg: datavg
+    pvs: "{{ datavg_devices|join(', ') }}"
+  register: create_datavg
+  when:
+  - datavg_phys_devices_exists is success
+
+- name: Ensure Docker Volume and Filesystem
+  block:
+    - name: Create Docker Logical Volume
+      lvol:
+        vg: datavg
+        lv: docker
+        resizefs: "{{ docker_force_resizefs | default(no) }}"
+        size: "{{ docker_volume_size }}"
+      register: docker_lv_created
+    - name: Format Docker Logical Volume
+      filesystem:
+        fstype: "{{ docker_volume_type }}"
+        dev: /dev/datavg/docker
+      when:
+      - docker_lv_created is changed
+  when:
+  - manage_docker | default(True)
+  - datavg_phys_devices_exists is success
+
+- name: Mount Docker Logical volume
+  mount:
+    path: "{{ docker_mount_path }}"
+    src: /dev/datavg/docker
+    fstype: "{{ docker_volume_type }}"
+    state: mounted
+  when:
+  - manage_docker | default(True)
+  - docker_lv_created is defined
+  - docker_lv_created is changed
+
+- name: Ensure Proxy Volume and Filesystem
+  block:
+    - name: Create Proxy Logical Volume
+      lvol:
+        vg: datavg
+        lv: proxycache
+        resizefs: "{{ proxy_force_resizefs | default(no) }}"
+        size: "{{ proxy_volume_size }}"
+      register: proxy_lv_created
+    - name: Format Proxy Logical Volume
+      filesystem:
+        fstype: "{{ proxy_volume_type }}"
+        dev: /dev/datavg/proxycache
+      when:
+      - proxy_lv_created is changed
+  when:
+  - manage_proxy | default(True)
+  - datavg_phys_devices_exists is success
+
+- name: Mount Proxy Logical volume
+  mount:
+    path: "{{ proxy_mount_path }}"
+    src: /dev/datavg/proxycache
+    fstype: "{{ proxy_volume_type }}"
+    state: mounted
+  when:
+  - manage_proxy | default(True)
+  - proxy_lv_created is defined
+  - proxy_lv_created is changed
+
+- name: Ensure Registry Volume and Filesystem
+  block:
+    - name: Create Registry Logical Volume
+      lvol:
+        vg: datavg
+        lv: registry
+        resizefs: "{{ registry_force_resizefs | default(no) }}"
+        size: "{{ registry_volume_size }}"
+      register: registry_lv_created
+    - name: Format Registry Logical Volume
+      filesystem:
+        fstype: "{{ registry_volume_type }}"
+        dev: /dev/datavg/registry
+      when:
+      - registry_lv_created is changed
+  when:
+  - manage_registry | default(True)
+  - datavg_phys_devices_exists is success
+
+- name: Mount Registry Logical volume
+  mount:
+    path: "{{ registry_mount_path }}"
+    src: /dev/datavg/registry
+    fstype: "{{ registry_volume_type }}"
+    state: mounted
+  when:
+  - manage_registry | default(True)
+  - registry_lv_created is defined
+  - registry_lv_created is changed
+
+- name: Ensure NFSServer Volume and Filesystem
+  block:
+    - name: Create NFSServer Logical Volume
+      lvol:
+        vg: datavg
+        lv: nfsserver
+        resizefs: "{{ nfsserver_force_resizefs | default(no) }}"
+        size: "{{ nfsserver_volume_size }}"
+      register: nfsserver_lv_created
+    - name: Format NFSServer Logical Volume
+      filesystem:
+        fstype: "{{ nfsserver_volume_type }}"
+        dev: /dev/datavg/nfsserver
+      when:
+      - nfsserver_lv_created is changed
+  when:
+  - manage_nfsserver | default(True)
+  - datavg_phys_devices_exists is success
+
+- name: Mount NFSServer Logical volume
+  mount:
+    path: "{{ nfsserver_mount_path }}"
+    src: /dev/datavg/nfsserver
+    fstype: "{{ nfsserver_volume_type }}"
+    state: mounted
+  when:
+  - manage_nfsserver | default(True)
+  - nfsserver_lv_created is defined
+  - nfsserver_lv_created is changed

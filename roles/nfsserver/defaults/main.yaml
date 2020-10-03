@@ -1,0 +1,11 @@
+---
+service_image: erichough/nfs-server:latest
+nfsserver_mount_path: /var/lib/exports
+
+disable_services:
+  - rpcbind.socket
+  - rpcbind.target
+  - rpcbind
+  - rpc-statd.service
+  - rpc-statd-notify.service
+ 

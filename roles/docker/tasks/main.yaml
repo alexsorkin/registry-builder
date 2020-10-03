@@ -1,0 +1,8 @@
+---
+- name: Enable Docker engine
+  service:
+    name: docker
+    state: started
+    enabled: true
+  when:
+  - manage_docker | default(True)

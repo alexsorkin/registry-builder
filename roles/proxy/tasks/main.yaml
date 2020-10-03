@@ -1,0 +1,157 @@
+---
+- name: Populate static hosts mappings
+  lineinfile: dest=/etc/hosts regexp='.*{{ item.host }}$' line="{{ item.ip }} {{ item.host }}"
+  with_items:
+  - { host: "{{ bintray_static_host }}", ip: "{{ bintray_static_ip }}" }
+
+- name: Produce Proxied Domains Hosts lists
+  set_fact:
+    proxy_domain_rhosts: "{{ proxy_domain_rhosts + [ item.rhost ] }}"
+  with_items: "{{ proxy_domains }}"
+ 
+- name: Produce Proxied Domains Healthchecks lists
+  set_fact:
+    proxy_domain_hchecks: "{{ proxy_domain_hchecks + [ item.hcheck ] }}"
+  with_items: "{{ proxy_domains }}"
+  when:
+  - (item.hcheck.enabled | default(True))
+
+- name: Process Proxy Templates
+  vars:
+    proxy_domain_hosts: "{{ proxy_domain_rhosts }}"
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    mode: "{{ item.mode }}"
+  with_items:
+    - { src: proxy.j2, dest: /usr/local/bin/proxy, mode: '0700' }
+    - { src: proxy.service.j2, dest: /etc/systemd/system/proxy.service, mode: '0644' }
+  register: proxy_service
+
+- name: Ensure ca certificates folder
+  file:
+    path: "{{ item }}"
+    state: directory
+  with_items:
+  - "{{ proxy_mount_ca }}"
+  - "{{ proxy_mount_crts }}"
+
+- name: Enable Proxy Services
+  block:
+  - name: Reload systemd, pull proxy image
+    shell: | 
+      systemctl daemon-reload
+      docker pull {{ service_image }}
+    retries: 10
+    delay: 3
+  - name: Stop proxy service
+    service:
+      name: "{{ item }}" 
+      state: stopped
+    with_items:
+    - 'proxy'
+  - name: Start proxy service
+    service:
+      name: "{{ item }}" 
+      state: restarted
+      enabled: yes
+    register: proxy_restarted
+    with_items:
+    - 'proxy'
+  - name: Make pause 5 seconds for service to start
+    pause:
+      seconds: 5
+      prompt: "Waiting for services restart"
+    when:
+    - proxy_restarted is defined
+    - proxy_restarted is changed
+  when:
+  - proxy_service is defined
+  - proxy_service is changed
+
+- block:
+  - name: Download proxy ca certificate
+    get_url:
+      url: http://localhost:{{ proxy_expose_port }}/ca.crt
+      dest: /etc/pki/ca-trust/source/anchors/registry_proxy_ca.crt
+    retries: 10
+    delay: 3
+    register: ca_anchor_populated
+#  - name: Merge registry ca certificate
+#    shell: |
+#      cat /etc/docker/registry/ca/ia.crt >> {{ proxy_mount_ca }}/ca.crt
+#      cat /etc/docker/registry/ca/ca.crt >> {{ proxy_mount_ca }}/ca.crt
+#    when:
+#    - ca_anchor_populated is defined and ca_anchor_populated is changed
+  - name: Import proxy ca certificate
+    shell: |
+      update-ca-trust extract
+    when:
+    - ca_anchor_populated is defined and ca_anchor_populated is changed
+#  when:
+#  - proxy_restarted is defined and proxy_restarted is changed
+
+- block:
+  - name: Ensure docker config folder
+    file:
+      path: /etc/systemd/system/docker.service.d
+      state: directory
+  - name: Put docker proxy environemnt
+    copy:
+      dest: /etc/systemd/system/docker.service.d/http-proxy.conf
+      content: |
+        [Service]
+        Environment="http_proxy=http://localhost:{{ proxy_expose_port }}"
+        Environment="https_proxy=http://localhost:{{ proxy_expose_port }}"
+        Environment="HTTP_PROXY=http://localhost:{{ proxy_expose_port }}"
+        Environment="HTTPS_PROXY=http://localhost:{{ proxy_expose_port }}"
+        Environment="NO_PROXY=localhost,127.0.0.0,127.0.1.1,127.0.1.1,{{ host_fqdn }},{{ inventory_hostname }}"
+  - name: Reload systemd daemon
+    shell: |
+      systemctl daemon-reload
+  - name: Stop Registry, Proxy services
+    service:
+      name: "{{ item }}" 
+      state: stopped
+    with_items:
+    - 'registry'
+    - 'proxy'
+  - name: Restart docker service
+    service:
+      name: "{{ item }}" 
+      state: restarted
+    with_items:
+    - 'docker'
+  - name: Start Registry, Proxy services
+    service:
+      name: "{{ item }}" 
+      state: started
+    with_items:
+    - 'registry'
+    - 'proxy'
+  when:
+  - proxy_restarted is defined and proxy_restarted is changed
+
+- name: Wait for Proxy Service
+  vars:
+    healthcheck_url: "{{ item.url }}"
+    healthcheck_accept: "{{ item.url }}"
+  uri:
+    url: "{{ healthcheck_url }}"
+#    follow_redirects: all
+    method: GET
+    headers:
+      Accept: "application/json; text/html"
+    status_code: 200,201,302
+    return_content: no
+  environment:
+    http_proxy: http://localhost:{{ proxy_expose_port }}
+    https_proxy: http://localhost:{{ proxy_expose_port }}
+  register: result
+  until: result is success
+  retries: 5
+  delay: 2
+  with_items: "{{ proxy_domain_hchecks }}"
+#  when:
+#  - proxy_restarted is defined and proxy_restarted is changed
+
