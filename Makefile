@@ -72,6 +72,9 @@ prepare:
 	echo "$(DRY_RUN_MODE)" >> _environment.yml
 	echo "$(GC_MODE)" >> _environment.yml
 
+build:
+	docker build -t devops-tools/registry-builder .
+
 registry: prepare
 	vagrant up --no-provision
 	vagrant provision
