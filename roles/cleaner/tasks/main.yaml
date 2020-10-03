@@ -19,5 +19,5 @@
 - name: Notify digests removal handlers
   command: /bin/true
   notify:
-  - debug accumualted removal collection
-  - handle registry cleanup
+  - debug first records of accumualted removal collection
+  - handle accumulated removal digests cleanup

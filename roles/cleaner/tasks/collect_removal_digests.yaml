@@ -17,6 +17,7 @@
   with_items: "{{ metadata_tags }}"
   when:
   - managed_registry_secured
+  no_log: True
 
 - name: collect tags metadata from insecured registry
   uri:
@@ -28,17 +29,19 @@
   with_items: "{{ metadata_tags }}"
   when:
   - not managed_registry_secured
+  no_log: True
 
 - name: merge tags metadata from sources
   set_fact:
-    tags_metadata: "{{ tags_metadata_from_secured | default(tags_metadata_from_insecured) }}"
+    tags_metadata: "{{ tags_metadata_from_secured | default(tags_metadata_from_insecured) | default([]) }}"
+  no_log: True
 
 - name: debug retrieved tags metadata content
   vars:
     tag_content: "{{ (item.content | from_json) }}"
   debug:
     var: tag_content
-    verbosity: 2
+    verbosity: 3
   with_items:
   - "{{ tags_metadata.results }}"
   when:
@@ -90,6 +93,7 @@
   with_items: "{{ sorted_images_tags_collection | list }}"
   when:
   - managed_registry_secured
+  no_log: True
 
 - name: collect images digests from insecured registry
   uri:
@@ -102,10 +106,12 @@
   with_items: "{{ sorted_images_tags_collection | list }}"
   when:
   - not managed_registry_secured
+  no_log: True
 
 - name: merge images digests form sources
   set_fact:
-    filtered_images_digests: "{{ filtered_images_digests_from_secured | default(filtered_images_digests_from_insecured) }}"
+    filtered_images_digests: "{{ filtered_images_digests_from_secured | default(filtered_images_digests_from_insecured) | default([]) }}"
+  no_log: True
 
 - name: debug retrieved images digests
   vars:
@@ -146,6 +152,6 @@
   when:
   - not (((images_digests_removal_collection + images_digests_tags_collection) | list | length) >= (managed_cleanup_batch_size | int))
 
-- name: debug accumulate max batch size
+- name: debug accumulated max batch size
   debug:
     msg: "Accumulated digests batch size: {{ images_digests_removal_collection | list | length }}"
