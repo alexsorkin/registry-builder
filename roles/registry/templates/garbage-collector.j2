@@ -1,0 +1,12 @@
+#!/bin/bash
+
+/usr/bin/docker run \
+  --rm \
+  --memory=256M \
+  --oom-kill-disable \
+  --blkio-weight=1000 \
+  -v {{ registry_mount_path }}:/var/lib/registry:rw \
+  -v /etc/docker/registry/registry.yaml:/etc/docker/registry/config.yml:ro \
+  {{ service_image }} \
+  garbage-collect -m \
+    /etc/docker/registry/config.yml

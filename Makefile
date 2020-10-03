@@ -6,6 +6,7 @@ DEFAULT_REGISTRY_PASS = secret123
 DEFAULT_REGISTRY_SECURED = true
 DEFAULT_REGISTRY_PORT = 443
 DEFAULT_DRY_RUN_MODE = false
+DEFAULT_GC_MODE = true
 
 BUILD_ARGS =
 
@@ -56,6 +57,10 @@ DRY_RUN_MODE := dry_run_mode: $(DEFAULT_DRY_RUN_MODE)
 ifneq ($(strip $(DRY_RUN)),)
   DRY_RUN_MODE := dry_run_mode: $(DRY_RUN)
 endif
+GC_MODE := garbage_collector_enabled: $(DEFAULT_GC_MODE)
+ifneq ($(strip $(GARBAGE_COLLECT)),)
+  GC_MODE := garbage_collector_enabled: $(GARBAGE_COLLECT)
+endif
 
 .PHONY: registry regclean
 
@@ -65,6 +70,7 @@ prepare:
 	echo "---" > _environment.yml
 	echo "$(BUILD_ARGS)"|tr ";" "\n"|sed 's/\ //g'|sed 's/\:/\:\ /g' >> _environment.yml
 	echo "$(DRY_RUN_MODE)" >> _environment.yml
+	echo "$(GC_MODE)" >> _environment.yml
 
 registry: prepare
 	vagrant up --no-provision
