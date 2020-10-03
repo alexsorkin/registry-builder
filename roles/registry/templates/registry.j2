@@ -13,6 +13,7 @@ fi
   --oom-kill-disable \
   --blkio-weight=1000 \
   --name=registry \
+  -e REGISTRY_STORAGE_DELETE_ENABLED=true \
   -v {{ registry_crt_dir }}:/certs:ro \
   -v {{ registry_htpasswd_dir }}:/auth:ro \
   -v {{ registry_mount_path }}:/var/lib/registry:rw \

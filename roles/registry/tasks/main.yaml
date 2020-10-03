@@ -16,6 +16,7 @@
     mode: "{{ item.mode }}"
   with_items:
     - { src: registry.j2, dest: /usr/local/bin/registry, mode: '0700' }
+    - { src: garbage-collector.j2, dest: /usr/local/bin/garbage-collector, mode: '0700' }
     - { src: registry.service.j2, dest: /etc/systemd/system/registry.service, mode: '0644' }
     - { src: create_network.sh.j2, dest: /usr/local/bin/create_network.sh, mode: '0700' }
     - { src: registry.yaml.j2, dest: /etc/docker/registry/registry.yaml, mode: '0644' }

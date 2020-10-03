@@ -158,7 +158,7 @@ Vagrant.configure("2") do |config|
             ansible.host_key_checking = false
             ansible.raw_arguments = ["--forks=1", "--flush-cache"]
             ansible.host_vars = host_vars
-            #ansible.extra_vars = "_environment.yml"
+            ansible.extra_vars = "_environment.yml"
             #ansible.tags = ['download']
             ansible.groups = {
               "registry" => [vm_name],
