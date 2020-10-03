@@ -1,8 +1,0 @@
----
-registry_server: k8s-registry.internal
-registry_username: invtable
-registry_password: secret123
-registry_port: 443
-registry_secured: true
-dry_run_mode: true
-

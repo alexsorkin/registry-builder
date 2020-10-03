@@ -44,18 +44,17 @@ else
   REGISTRY_SECURED = $(DEFAULT_REGISTRY_SECURED)
   BUILD_ARGS += registry_secured: $(REGISTRY_SECURED);
 endif
-ifeq ($(DRY_RUN), true)
-  BUILD_ARGS += dry_run_mode: true;
-else
-  DRY_RUN = $(DEFAULT_DRY_RUN_MODE)
-  BUILD_ARGS += dry_run_mode: $(DRY_RUN);
-endif
 DEBUG_LEVEL =
 ifneq ($(strip $(DEBUG_LEVEL)),)
   DEBUG_LEVEL = $(DEBUG_LEVEL)
 endif
 ifeq ($(strip $(ANSIBLE_USER)),)
   ANSIBLE_USER = vagrant
+endif
+
+DRY_RUN_MODE := dry_run_mode: $(DEFAULT_DRY_RUN_MODE)
+ifneq ($(strip $(DRY_RUN)),)
+  DRY_RUN_MODE := dry_run_mode: $(DRY_RUN)
 endif
 
 .PHONY: registry regclean
@@ -65,6 +64,7 @@ all: prepare registry
 prepare:
 	echo "---" > _environment.yml
 	echo "$(BUILD_ARGS)"|tr ";" "\n"|sed 's/\ //g'|sed 's/\:/\:\ /g' >> _environment.yml
+	echo "$(DRY_RUN_MODE)" >> _environment.yml
 
 registry: prepare
 	vagrant up --no-provision
