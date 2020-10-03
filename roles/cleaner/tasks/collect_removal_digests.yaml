@@ -1,10 +1,10 @@
 ---
-- name: Reset local scoped intermidiate collections
+- name: reset local scoped intermidiate collections
   set_fact:
     unsorted_images_tags_collection: []
     images_digests_tags_collection: []
 
-- name: Collect tags metadata from secured registry
+- name: collect tags metadata from secured registry
   uri:
     url: "{{ registry_http_url }}/v2/{{ metadata_repo }}/manifests/{{ item }}"
     method: GET
@@ -13,12 +13,27 @@
     force_basic_auth: yes
     return_content: yes
     status_code: 200,201,302
-  register: tags_metadata
+  register: tags_metadata_from_secured
   with_items: "{{ metadata_tags }}"
   when:
   - managed_registry_secured
 
-- name: Debug retrieved tags metadata content
+- name: collect tags metadata from insecured registry
+  uri:
+    url: "{{ registry_http_url }}/v2/{{ metadata_repo }}/manifests/{{ item }}"
+    method: GET
+    return_content: yes
+    status_code: 200,201,302
+  register: tags_metadata_from_insecured
+  with_items: "{{ metadata_tags }}"
+  when:
+  - not managed_registry_secured
+
+- name: merge tags metadata from sources
+  set_fact:
+    tags_metadata: "{{ tags_metadata_from_secured | default(tags_metadata_from_insecured) }}"
+
+- name: debug retrieved tags metadata content
   vars:
     tag_content: "{{ (item.content | from_json) }}"
   debug:
@@ -29,7 +44,7 @@
   when:
   - tags_metadata is success
 
-- name: Produce tags array with creation dates
+- name: produce tags array with creation dates
   set_fact:
     unsorted_images_tags_collection: "{{ 
       unsorted_images_tags_collection + [
@@ -46,7 +61,7 @@
     - tags_metadata is success
   no_log: True
   
-- name: Debug tags sorted by creation date
+- name: debug tags sorted by creation date
   vars:
     image_tag_dict: "{{ item }}"
   debug:
@@ -57,11 +72,11 @@
   when:
   - tags_metadata is success
 
-- name: Filtering and sorting repos tags array
+- name: filtering and sorting repos tags array
   set_fact:
     sorted_images_tags_collection: "{{ (unsorted_images_tags_collection | default([]) | sort(attribute='tag_created'))[:-(managed_registry_keep_tags | int)] | list }}"
 
-- name: Collect images digests from secured registry
+- name: collect images digests from secured registry
   uri:
     url: "{{ registry_http_url }}/v2/{{ item.repo_name }}/manifests/{{ item.repo_tag }}"
     method: GET
@@ -71,12 +86,28 @@
     password: "{{ registry_password }}"
     force_basic_auth: yes
     status_code: 200,201,302
-  register: filtered_images_digests
+  register: filtered_images_digests_from_secured
   with_items: "{{ sorted_images_tags_collection | list }}"
   when:
   - managed_registry_secured
 
-- name: Debug retrieved images digests
+- name: collect images digests from insecured registry
+  uri:
+    url: "{{ registry_http_url }}/v2/{{ item.repo_name }}/manifests/{{ item.repo_tag }}"
+    method: GET
+    headers:
+      Accept: "application/vnd.docker.distribution.manifest.v2+json"
+    status_code: 200,201,302
+  register: filtered_images_digests_from_insecured
+  with_items: "{{ sorted_images_tags_collection | list }}"
+  when:
+  - not managed_registry_secured
+
+- name: merge images digests form sources
+  set_fact:
+    filtered_images_digests: "{{ filtered_images_digests_from_secured | default(filtered_images_digests_from_insecured) }}"
+
+- name: debug retrieved images digests
   vars:
     image_digest_item: "{{ item }}"
   debug:
@@ -87,7 +118,7 @@
   when:
   - filtered_images_digests is success
 
-- name: Produce tags array with images digests
+- name: produce tags array with images digests
   set_fact:
     images_digests_tags_collection: "{{ 
       images_digests_tags_collection + [
@@ -104,11 +135,17 @@
   - filtered_images_digests is success
   no_log: True
 
-- name: Debug retrieved images digests for removal
+- name: debug retrieved images digests for removal
   debug:
     var: images_digests_tags_collection
     verbosity: 1
 
-- name: Accumulate digests for removal in global array
+- name: accumulate digests for removal in global array
   set_fact:
     images_digests_removal_collection: "{{ (images_digests_removal_collection + images_digests_tags_collection) | list }}"
+  when:
+  - not (((images_digests_removal_collection + images_digests_tags_collection) | list | length) >= (managed_cleanup_batch_size | int))
+
+- name: debug accumulate max batch size
+  debug:
+    msg: "Accumulated digests batch size: {{ images_digests_removal_collection | list | length }}"

@@ -28,6 +28,10 @@ else
   BUILD_ARGS += boot_registry_pass: $(BOOT_REGISTRY_PASS);
 endif
 
+ifneq ($(strip $(DEBUG_LEVEL)),)
+  DEBUG_LEVEL = $(DEBUG_LEVEL);
+endif
+
 ifeq ($(strip $(ANSIBLE_USER)),)
   ANSIBLE_USER = vagrant
 endif
@@ -57,4 +61,4 @@ purge:
 	vagrant destroy -f
 
 cleanreg:
-	ansible-playbook -i inventory/vagrant_ansible_inventory --limit=registry cleaner.yaml
+	ansible-playbook $(DEBUG_LEVEL) -i inventory/vagrant_ansible_inventory --limit=registry cleaner.yaml
