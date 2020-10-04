@@ -14,9 +14,7 @@
     return_content: yes
     status_code: 200,201,302
   register: tags_metadata_from_secured
-  retries: 1
-  delay: 2
-  until: tags_metadata_from_secured is success
+  ignore_errors: True
   with_items: "{{ metadata_tags }}"
   when:
   - managed_registry_secured
@@ -29,9 +27,7 @@
     return_content: yes
     status_code: 200,201,302
   register: tags_metadata_from_insecured
-  retries: 1
-  delay: 2
-  until: tags_metadata_from_insecured is success
+  ignore_errors: True
   with_items: "{{ metadata_tags }}"
   when:
   - not managed_registry_secured
@@ -53,12 +49,12 @@
 
 - name: debug retrieved tags metadata content
   vars:
-    tag_content: "{{ (tags_metadata.results | from_json) }}"
+    metadata_results: "{{ (tags_metadata.results | from_json) }}"
   debug:
-    var: tag_content
+    var: metadata_results
     verbosity: 3
-  when:
-  - tags_metadata is success
+#  when:
+#  - tags_metadata is success
 
 - name: produce tags array with creation dates
   set_fact:
@@ -74,20 +70,19 @@
   with_items:
   - "{{ tags_metadata.results }}"
   when:
-  - tags_metadata is success
+  - item.content is defined
   no_log: True
 
 - name: filtering and sorting repos tags array
   set_fact:
     sorted_images_tags_collection: "{{ (unsorted_images_tags_collection | list | sort(attribute='tag_created'))[:-(managed_registry_keep_tags | int)] | list }}"
   when:
-#  no_log: True
+  no_log: True
 
 - name: debug sorted and filtered tags aray
   debug:
     var: sorted_images_tags_collection
     verbosity: 2
-  when:
 
 - name: collect images digests from secured registry
   uri:
@@ -100,9 +95,7 @@
     force_basic_auth: yes
     status_code: 200,201,302
   register: filtered_images_digests_from_secured
-  retries: 1
-  delay: 2
-  until: filtered_images_digests_from_secured is success
+  ignore_errors: True
   with_items: "{{ sorted_images_tags_collection | default([]) | list }}"
   when:
   - managed_registry_secured
@@ -117,9 +110,7 @@
       Accept: "application/vnd.docker.distribution.manifest.v2+json"
     status_code: 200,201,302
   register: filtered_images_digests_from_insecured
-  retries: 1
-  delay: 2
-  until: filtered_images_digests_from_insecured is success
+  ignore_errors: True
   with_items: "{{ sorted_images_tags_collection | default([]) | list }}"
   when:
   - not managed_registry_secured
@@ -146,8 +137,8 @@
   debug:
     var: image_digest_item
     verbosity: 2
-  when:
-  - filtered_images_digests is success
+#  when:
+#  - filtered_images_digests is success
 
 - name: produce tags array with images digests
   set_fact:
@@ -163,14 +154,13 @@
   with_items:
   - "{{ filtered_images_digests.results | default([]) | list }}"
   when:
-  - filtered_images_digests is success
+  - item.item.repo_tag is defined
   no_log: True
 
 - name: debug retrieved images digests for removal
   debug:
     var: images_digests_tags_collection
     verbosity: 1
-  when:
 
 - name: accumulate digests for removal in global array
   set_fact:
@@ -178,3 +168,7 @@
   when:
   - not (((images_digests_removal_collection + (images_digests_tags_collection | default([]) | list) ) | list | length) >= (managed_cleanup_batch_size | int))
   no_log: True
+
+- name: debug accumulated batch size collection size
+  debug:
+    msg: "Accumulated digests batch size after '{{ metadata_repo }}': {{ images_digests_removal_collection | default([]) | list | length }}"

@@ -161,12 +161,13 @@
   vars:
     metadata_repo: "{{ image_repo.key }}"
     metadata_tags: "{{ image_repo.value }}"
-  include_tasks: mdata_collector_wrapper.yaml
+  include_tasks: collect_removal_digests.yaml
   with_items: "{{ extracted_managed_repos_tags | dict2items }}"
   loop_control:
     loop_var: image_repo
   when:
     - images_tags is success
+    - ( ((image_repo.value | list | length) > (managed_registry_keep_tags | int)) | bool )
 
 
 ################################PERFORM DIGEST REMOVAL##############################
