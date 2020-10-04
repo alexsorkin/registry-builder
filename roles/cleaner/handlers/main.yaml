@@ -45,6 +45,9 @@
     return_content: yes
     status_code: 200,201,302
   register: list_repositories
+  retries: 1
+  delay: 2
+  until: list_repositories is success
   ignore_errors: yes
 
 - name: collect repositories from insecured registry catalog
@@ -109,8 +112,8 @@
     force_basic_auth: yes
     status_code: 200,201,302
   register: images_tags
-  retries: 3
-  delay: 1
+  retries: 1
+  delay: 2
   until: images_tags is success
   ignore_errors: yes
   with_items:
@@ -124,8 +127,8 @@
     method: GET
     status_code: 200,201,302
   register: images_tags
-  retries: 3
-  delay: 1
+  retries: 1
+  delay: 2
   until: images_tags is success
   ignore_errors: yes
   with_items:
@@ -194,6 +197,9 @@
     status_code: 202
   register: delete_images
   ignore_errors: yes
+  retries: 1
+  delay: 2
+  until: delete_images is success
   with_items:
   - "{{ (images_digests_removal_collection | default([]) | list ) }}"
   no_log: True

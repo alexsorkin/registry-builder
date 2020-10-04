@@ -14,8 +14,8 @@
     return_content: yes
     status_code: 200,201,302
   register: tags_metadata_from_secured
-  retries: 3
-  delay: 1
+  retries: 1
+  delay: 2
   until: tags_metadata_from_secured is success
   with_items: "{{ metadata_tags }}"
   when:
@@ -29,8 +29,8 @@
     return_content: yes
     status_code: 200,201,302
   register: tags_metadata_from_insecured
-  retries: 3
-  delay: 1
+  retries: 1
+  delay: 2
   until: tags_metadata_from_insecured is success
   with_items: "{{ metadata_tags }}"
   when:
@@ -46,7 +46,7 @@
 
 - name: merge tags metadata from insecured source
   set_fact:
-    tags_metadata: "{{ tags_metadata_from_insecured) }}"
+    tags_metadata: "{{ tags_metadata_from_insecured }}"
   when:
   - not managed_registry_secured
   no_log: True
@@ -100,8 +100,8 @@
     force_basic_auth: yes
     status_code: 200,201,302
   register: filtered_images_digests_from_secured
-  retries: 3
-  delay: 1
+  retries: 1
+  delay: 2
   until: filtered_images_digests_from_secured is success
   with_items: "{{ sorted_images_tags_collection | list }}"
   when:
@@ -116,8 +116,8 @@
       Accept: "application/vnd.docker.distribution.manifest.v2+json"
     status_code: 200,201,302
   register: filtered_images_digests_from_insecured
-  retries: 3
-  delay: 1
+  retries: 1
+  delay: 2
   until: filtered_images_digests_from_insecured is success
   with_items: "{{ sorted_images_tags_collection | list }}"
   when:
