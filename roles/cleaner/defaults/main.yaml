@@ -30,3 +30,9 @@ extracted_managed_repos_tags: {}
 unfiltered_reposortories_list: []
 filtered_reposortories_list: []
 images_digests_removal_collection: []
+digests_delete_processed_results: []
+
+images_digests_removal_total: 0
+images_digests_removal_stats:
+  success: 0
+  failed: 0

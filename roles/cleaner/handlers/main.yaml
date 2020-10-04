@@ -183,6 +183,7 @@
   command: /bin/true
   notify:
   - delete images selected from secured registry
+  - images digests tried to process
   - check delete images is supported by registry
   - handle registry garbage collection
   when:
@@ -193,6 +194,7 @@
   command: /bin/true
   notify:
   - delete images selected from insecured registry
+  - images digests tried to process
   - check delete images is supported by registry
   - handle registry garbage collection
   when:
@@ -229,6 +231,12 @@
   with_items:
   - "{{ (images_digests_removal_collection | default([]) | list ) }}"
   no_log: True
+
+- name: images digests tried to process
+  set_fact:
+    digests_delete_processed_results: "{{ delete_images.results }}"
+  when:
+  - (delete_images.results | list | length) > 0
 
 - name: check delete images is supported by registry
   debug:
@@ -275,3 +283,37 @@
   shell: |
     systemctl start {{ registry_service }}
   become: yes
+
+- name: handle playbook report processing
+  command: /bin/true
+  notify:
+  - debug digests delete processed results
+  - produce registry cleaner summary stats
+  - produce registry cleaner summary report
+
+- name: debug digests delete processed results
+  debug:
+    var: digests_delete_processed_results
+    verbosity: 3
+
+- name: produce registry cleaner summary stats
+  set_fact:
+    images_digests_removal_total: "{{ digests_delete_processed_results | list | length }}"
+    images_digests_removal_stats:
+      success: "{% if not (managed_dry_run_mode | bool) %}{{ digests_delete_processed_results | list | selectattr('failed', 'equalto', False) | list | length }}{% else %}0{% endif %}"
+      failed: "{% if not (managed_dry_run_mode | bool) %}{{ digests_delete_processed_results | list | selectattr('failed', 'equalto', True) | list | length }}{% else %}0{% endif %}"
+
+- name: produce registry cleaner summary report
+  vars:
+    registry_cleanup_process_mode: "{% if (managed_dry_run_mode | bool) %}dry_run{% else %}delete{% endif %}"
+    images_digests_removal_statistic:
+    - "Registry cleanup summary report:"
+    - "  Registry cleanup process mode: {{ registry_cleanup_process_mode }}"
+    - "  Force registry garbage collection: {{ garbage_collector_enabled | lower }}"
+    - "  Selected repositories to process: {{ filtered_reposortories_list | length }}"
+    - "  Repositories having tags to delete: {{ extracted_managed_repos_tags| length }}"
+    - "  Repositories digests collected total: {{ images_digests_removal_total | int }}"
+    - "  Repositories digests removal success: {{ images_digests_removal_stats.success | int }}"
+    - "  Repositories digests removal failed: {{ images_digests_removal_stats.failed | int }}"
+  debug:
+    msg: "{{ images_digests_removal_statistic | list }}"
