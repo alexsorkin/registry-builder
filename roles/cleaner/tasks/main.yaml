@@ -28,6 +28,6 @@
   command: /bin/true
   notify:
   - debug first records of accumualted removal collection
-  - handle inaccumulated removal digests from insecured
+  - handle accumulated removal digests from insecured
   when:
     - not managed_registry_secured

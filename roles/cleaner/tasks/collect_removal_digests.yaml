@@ -169,6 +169,6 @@
   - not (((images_digests_removal_collection + (images_digests_tags_collection | default([]) | list) ) | list | length) >= (managed_cleanup_batch_size | int))
   no_log: True
 
-- name: debug accumulated batch size collection size
+- name: debug accumulated batch collection size
   debug:
     msg: "Accumulated digests batch size after '{{ metadata_repo }}': {{ images_digests_removal_collection | default([]) | list | length }}"
