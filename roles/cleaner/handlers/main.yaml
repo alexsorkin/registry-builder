@@ -140,9 +140,10 @@
   with_items:
   - "{{ images_tags.results | default([]) }}"
   when:
-    - images_tags is success
+  - images_tags is success
+  - ( ((item.json.tags | list | length | int) > (managed_registry_keep_tags | int)) | bool )
   no_log: True
-  
+
 - name: debug extracted repos tags
   debug:
     var: extracted_managed_repos_tags
@@ -166,8 +167,8 @@
   loop_control:
     loop_var: image_repo
   when:
-    - images_tags is success
-    - ( ((image_repo.value | list | length) > (managed_registry_keep_tags | int)) | bool )
+  - images_tags is success
+#    - ( ((image_repo.value | list | length) > (managed_registry_keep_tags | int)) | bool )
 
 
 ################################PERFORM DIGEST REMOVAL##############################
