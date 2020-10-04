@@ -1,5 +1,5 @@
 ---
-- name: reset local scoped intermidiate collections
+- name: reset local collections variables
   set_fact:
     unsorted_images_tags_collection: []
     images_digests_tags_collection: []
@@ -66,7 +66,7 @@
       unsorted_images_tags_collection + [
         {
           'repo_name': metadata_repo,
-          'repo_tag': (item.content | from_json).tag,
+          'repo_tag': (item.content | from_json).tag ,
           'tag_created': ((item.content | from_json).history[0].v1Compatibility | from_json).created
         }
       ]
@@ -74,20 +74,20 @@
   with_items:
   - "{{ tags_metadata.results }}"
   when:
-    - tags_metadata is success
+  - tags_metadata is success
   no_log: True
 
 - name: filtering and sorting repos tags array
   set_fact:
-    sorted_images_tags_collection: "{{ (unsorted_images_tags_collection | default([]) | sort(attribute='tag_created'))[:-(managed_registry_keep_tags | int)] | list }}"
-  no_log: True
+    sorted_images_tags_collection: "{{ (unsorted_images_tags_collection | list | sort(attribute='tag_created'))[:-(managed_registry_keep_tags | int)] | list }}"
+  when:
+#  no_log: True
 
 - name: debug sorted and filtered tags aray
   debug:
     var: sorted_images_tags_collection
     verbosity: 2
   when:
-  - tags_metadata is success
 
 - name: collect images digests from secured registry
   uri:
@@ -103,9 +103,10 @@
   retries: 1
   delay: 2
   until: filtered_images_digests_from_secured is success
-  with_items: "{{ sorted_images_tags_collection | list }}"
+  with_items: "{{ sorted_images_tags_collection | default([]) | list }}"
   when:
   - managed_registry_secured
+  - (sorted_images_tags_collection | default([]) | list | length) > 0
   no_log: True
 
 - name: collect images digests from insecured registry
@@ -119,28 +120,29 @@
   retries: 1
   delay: 2
   until: filtered_images_digests_from_insecured is success
-  with_items: "{{ sorted_images_tags_collection | list }}"
+  with_items: "{{ sorted_images_tags_collection | default([]) | list }}"
   when:
   - not managed_registry_secured
+  - (sorted_images_tags_collection | default([]) | list | length) > 0
   no_log: True
 
 - name: merge images digests form secured source
   set_fact:
-    filtered_images_digests: "{{ filtered_images_digests_from_secured }}"
+    filtered_images_digests: "{{ filtered_images_digests_from_secured | default(omit) }}"
   when:
   - managed_registry_secured
   no_log: True
 
 - name: merge images digests form insecured source
   set_fact:
-    filtered_images_digests: "{{ filtered_images_digests_from_insecured }}"
+    filtered_images_digests: "{{ filtered_images_digests_from_insecured | default(omit) }}"
   when:
   - not managed_registry_secured
   no_log: True
 
 - name: debug retrieved images digests
   vars:
-    image_digest_item: "{{ filtered_images_digests.results }}"
+    image_digest_item: "{{ filtered_images_digests.results | default([]) | list }}"
   debug:
     var: image_digest_item
     verbosity: 2
@@ -159,7 +161,7 @@
       ]
     }}"
   with_items:
-  - "{{ filtered_images_digests.results }}"
+  - "{{ filtered_images_digests.results | default([]) | list }}"
   when:
   - filtered_images_digests is success
   no_log: True
@@ -168,14 +170,11 @@
   debug:
     var: images_digests_tags_collection
     verbosity: 1
+  when:
 
 - name: accumulate digests for removal in global array
   set_fact:
-    images_digests_removal_collection: "{{ (images_digests_removal_collection + images_digests_tags_collection) | list }}"
+    images_digests_removal_collection: "{{ (images_digests_removal_collection + (images_digests_tags_collection | default([])) ) | list }}"
   when:
-  - not (((images_digests_removal_collection + images_digests_tags_collection) | list | length) >= (managed_cleanup_batch_size | int))
+  - not (((images_digests_removal_collection + (images_digests_tags_collection | default([]) | list) ) | list | length) >= (managed_cleanup_batch_size | int))
   no_log: True
-
-- name: debug accumulated max batch size
-  debug:
-    msg: "Accumulated digests batch size after '{{ metadata_repo }}': {{ images_digests_removal_collection | list | length }}"
