@@ -9,7 +9,7 @@
 - name: Notify insecured catalog collectors handlers
   command: /bin/true
   notify:
-  - handle secured digests collection
+  - handle insecured digests collection
   when:
     - not managed_registry_secured
 

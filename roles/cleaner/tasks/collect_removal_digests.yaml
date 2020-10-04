@@ -14,6 +14,9 @@
     return_content: yes
     status_code: 200,201,302
   register: tags_metadata_from_secured
+  retries: 3
+  delay: 1
+  until: tags_metadata_from_secured is success
   with_items: "{{ metadata_tags }}"
   when:
   - managed_registry_secured
@@ -26,24 +29,34 @@
     return_content: yes
     status_code: 200,201,302
   register: tags_metadata_from_insecured
+  retries: 3
+  delay: 1
+  until: tags_metadata_from_insecured is success
   with_items: "{{ metadata_tags }}"
   when:
   - not managed_registry_secured
   no_log: True
 
-- name: merge tags metadata from sources
+- name: merge tags metadata from secured source
   set_fact:
-    tags_metadata: "{{ tags_metadata_from_secured | default(tags_metadata_from_insecured) | default([]) }}"
+    tags_metadata: "{{ tags_metadata_from_secured }}"
+  when:
+  - managed_registry_secured
+  no_log: True
+
+- name: merge tags metadata from insecured source
+  set_fact:
+    tags_metadata: "{{ tags_metadata_from_insecured) }}"
+  when:
+  - not managed_registry_secured
   no_log: True
 
 - name: debug retrieved tags metadata content
   vars:
-    tag_content: "{{ (item.content | from_json) }}"
+    tag_content: "{{ (tags_metadata.results | from_json) }}"
   debug:
     var: tag_content
     verbosity: 3
-  with_items:
-  - "{{ tags_metadata.results }}"
   when:
   - tags_metadata is success
 
@@ -63,21 +76,18 @@
   when:
     - tags_metadata is success
   no_log: True
-  
-- name: debug tags sorted by creation date
-  vars:
-    image_tag_dict: "{{ item }}"
-  debug:
-    var: image_tag_dict
-    verbosity: 2
-  with_items: 
-  - "{{ (unsorted_images_tags_collection | default([]) | sort(attribute='tag_created')) | list }}"
-  when:
-  - tags_metadata is success
 
 - name: filtering and sorting repos tags array
   set_fact:
     sorted_images_tags_collection: "{{ (unsorted_images_tags_collection | default([]) | sort(attribute='tag_created'))[:-(managed_registry_keep_tags | int)] | list }}"
+  no_log: True
+
+- name: debug sorted and filtered tags aray
+  debug:
+    var: sorted_images_tags_collection
+    verbosity: 2
+  when:
+  - tags_metadata is success
 
 - name: collect images digests from secured registry
   uri:
@@ -90,6 +100,9 @@
     force_basic_auth: yes
     status_code: 200,201,302
   register: filtered_images_digests_from_secured
+  retries: 3
+  delay: 1
+  until: filtered_images_digests_from_secured is success
   with_items: "{{ sorted_images_tags_collection | list }}"
   when:
   - managed_registry_secured
@@ -103,24 +116,34 @@
       Accept: "application/vnd.docker.distribution.manifest.v2+json"
     status_code: 200,201,302
   register: filtered_images_digests_from_insecured
+  retries: 3
+  delay: 1
+  until: filtered_images_digests_from_insecured is success
   with_items: "{{ sorted_images_tags_collection | list }}"
   when:
   - not managed_registry_secured
   no_log: True
 
-- name: merge images digests form sources
+- name: merge images digests form secured source
   set_fact:
-    filtered_images_digests: "{{ filtered_images_digests_from_secured | default(filtered_images_digests_from_insecured) | default([]) }}"
+    filtered_images_digests: "{{ filtered_images_digests_from_secured }}"
+  when:
+  - managed_registry_secured
+  no_log: True
+
+- name: merge images digests form insecured source
+  set_fact:
+    filtered_images_digests: "{{ filtered_images_digests_from_insecured }}"
+  when:
+  - not managed_registry_secured
   no_log: True
 
 - name: debug retrieved images digests
   vars:
-    image_digest_item: "{{ item }}"
+    image_digest_item: "{{ filtered_images_digests.results }}"
   debug:
     var: image_digest_item
     verbosity: 2
-  with_items:
-  - "{{ filtered_images_digests.results }}"
   when:
   - filtered_images_digests is success
 
@@ -151,7 +174,8 @@
     images_digests_removal_collection: "{{ (images_digests_removal_collection + images_digests_tags_collection) | list }}"
   when:
   - not (((images_digests_removal_collection + images_digests_tags_collection) | list | length) >= (managed_cleanup_batch_size | int))
+  no_log: True
 
 - name: debug accumulated max batch size
   debug:
-    msg: "Accumulated digests batch size: {{ images_digests_removal_collection | list | length }}"
+    msg: "Accumulated digests batch size after '{{ metadata_repo }}': {{ images_digests_removal_collection | list | length }}"

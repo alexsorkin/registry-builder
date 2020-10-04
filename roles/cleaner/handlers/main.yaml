@@ -35,7 +35,7 @@
 
 - name: collect repositories from secured registry catalog
   uri:
-    url: "{{ managed_registry_http_url }}/v2/_catalog"
+    url: "{{ managed_registry_http_url }}/v2/_catalog?n={{ managed_catalog_pagination }}"
     method: GET
     headers:
       Accept: "application/json; charset=utf-8"
@@ -49,7 +49,7 @@
 
 - name: collect repositories from insecured registry catalog
   uri:
-    url: "{{ managed_registry_http_url }}/v2/_catalog"
+    url: "{{ managed_registry_http_url }}/v2/_catalog?n={{ managed_catalog_pagination }}"
     method: GET
     headers:
       Accept: "application/json; charset=utf-8"
@@ -81,7 +81,7 @@
 
 - name: produce filtered repositories array
   vars:
-    repo_search_pattern: "{{ item.name }}/"
+    repo_search_pattern: "{{ item.name }}"
   set_fact:
     filtered_reposortories_list: "{{ filtered_reposortories_list +
         (unfiltered_reposortories_list | selectattr('name', 'search', repo_search_pattern) | list)
@@ -109,6 +109,9 @@
     force_basic_auth: yes
     status_code: 200,201,302
   register: images_tags
+  retries: 3
+  delay: 1
+  until: images_tags is success
   ignore_errors: yes
   with_items:
   - "{{ (filtered_reposortories_list | default([]) | list ) }}"
@@ -121,6 +124,9 @@
     method: GET
     status_code: 200,201,302
   register: images_tags
+  retries: 3
+  delay: 1
+  until: images_tags is success
   ignore_errors: yes
   with_items:
   - "{{ (filtered_reposortories_list | default([]) | list ) }}"
@@ -140,10 +146,11 @@
     verbosity: 1
 
 - name: debug outer loop data for tag metadata collector
+  vars:
+    outer_loop_data: "{{ extracted_managed_repos_tags }}"
   debug:
-    var: item
+    var: outer_loop_data
     verbosity: 2
-  with_items: "{{ extracted_managed_repos_tags | dict2items }}"
   when:
   - images_tags is success
 
@@ -209,7 +216,7 @@
   - start registry service
   when:
   - garbage_collector_enabled
-  - delete_images is success
+  - (delete_images is success) or garbage_collector_ignore_failures
 
 - name: stop registry service for cold gc
   shell: |
