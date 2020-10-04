@@ -70,7 +70,7 @@
   with_items:
   - "{{ tags_metadata.results }}"
   when:
-  - item.content is defined
+  - (item.content | from_json).tag is defined
   no_log: True
 
 - name: filtering and sorting repos tags array

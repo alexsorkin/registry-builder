@@ -16,8 +16,18 @@
 - name: Flush catalog discovery retrieval handlers
   meta: flush_handlers
 
-- name: Notify digests removal handlers
+- name: Notify secured digests removal handlers
   command: /bin/true
   notify:
   - debug first records of accumualted removal collection
-  - handle accumulated removal digests cleanup
+  - handle accumulated removal digests from secured
+  when:
+    - managed_registry_secured
+
+- name: Notify inecured digests removal handlers
+  command: /bin/true
+  notify:
+  - debug first records of accumualted removal collection
+  - handle inaccumulated removal digests from insecured
+  when:
+    - not managed_registry_secured
