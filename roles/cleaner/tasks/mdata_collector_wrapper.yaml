@@ -5,9 +5,9 @@
 
 - name: debug repository collection has enough tags to remove
   debug:
-    msg: "Repository '{{ metadata_tags }}' has not enough tags to remove"
+    msg: "Repository '{{ metadata_repo }}' has not enough tags to remove"
   when:
-  - ( ((repo_tags_number | int) > (managed_registry_keep_tags | int)) | bool )
+  - ( ((repo_tags_number | int) <= (managed_registry_keep_tags | int)) | bool )
 
 - name: handle metadata collection
   include_tasks: collect_removal_digests.yaml
