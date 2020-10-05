@@ -162,7 +162,7 @@
   vars:
     metadata_repo: "{{ image_repo.key }}"
     metadata_tags: "{{ image_repo.value }}"
-  include_tasks: collect_removal_digests.yaml
+  include_tasks: collect_digests.yaml
   with_items: "{{ extracted_managed_repos_tags | dict2items }}"
   loop_control:
     loop_var: image_repo
@@ -248,24 +248,30 @@
 - name: handle registry garbage collection
   command: /bin/true
   notify:
-  - stop registry service for cold gc
   - ensure garbage collector log dir
+  - stop registry service for cold gc
   - execute garbage collector script
   - start registry service
   when:
-  - garbage_collector_enabled
+  - (garbage_collector_enabled | bool)
   - (delete_images is success) or garbage_collector_ignore_failures
-
-- name: stop registry service for cold gc
-  shell: |
-    systemctl stop {{ registry_service }}
-  become: yes
 
 - name: ensure garbage collector log dir
   file:
     path: "{{ garbage_collector_log_dir }}"
     state: directory
     mode: 644
+  register: gc_log_dir_created
+  ignore_errors: True
+  become: yes
+
+- name: stop registry service for cold gc
+  shell: |
+    systemctl stop {{ managed_registry_service }}
+  register: resistry_service_stopped
+  ignore_errors: True
+  when:
+  - gc_log_dir_created is success
   become: yes
 
 - name: execute garbage collector script
@@ -274,12 +280,18 @@
   shell: |
     {{ garbage_collector_script }} 2>&1 1>{{ gc_log_file }} || true
   ignore_errors: yes
+  when:
+  - gc_log_dir_created is success
+  - resistry_service_stopped is success
   become: yes
   no_log: True
 
 - name: start registry service
   shell: |
-    systemctl start {{ registry_service }}
+    systemctl start {{ managed_registry_service }}
+  when:
+  - gc_log_dir_created is success
+  - resistry_service_stopped is success
   become: yes
 
 ################################PRODUCE PROCESS REPORT##############################

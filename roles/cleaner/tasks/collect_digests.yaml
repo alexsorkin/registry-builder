@@ -58,11 +58,7 @@
   set_fact:
     unsorted_images_tags_collection: "{{ 
       unsorted_images_tags_collection + [
-        {
-          'repo_name': metadata_repo,
-          'repo_tag': (item.content | from_json).tag ,
-          'tag_created': ((item.content | from_json).history[0].v1Compatibility | from_json).created
-        }
+        { 'repo_name': metadata_repo, 'repo_tag': (item.content | from_json).tag, 'tag_created': ((item.content | from_json).history[0].v1Compatibility | from_json).created }
       ]
     }}"
   with_items:
@@ -140,11 +136,7 @@
   set_fact:
     images_digests_tags_collection: "{{ 
       images_digests_tags_collection + [
-        {
-          'repo_name': metadata_repo,
-          'repo_tag': item.item.repo_tag,
-          'image_digest': item.docker_content_digest
-        }
+        { 'repo_name': metadata_repo, 'repo_tag': item.item.repo_tag, 'image_digest': item.docker_content_digest }
       ]
     }}"
   with_items:

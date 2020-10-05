@@ -59,7 +59,7 @@ ifneq ($(strip $(DRY_RUN)),)
 endif
 GC_MODE := garbage_collector_enabled: $(DEFAULT_GC_MODE)
 ifneq ($(strip $(GARBAGE_COLLECT)),)
-  GC_MODE := garbage_collector_enabled: $(GARBAGE_COLLECT)
+  GC_MODE := garbage_collector.enabled: $(GARBAGE_COLLECT)
 endif
 
 .PHONY: registry regclean

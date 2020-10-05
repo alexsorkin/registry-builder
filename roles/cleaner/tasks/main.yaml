@@ -4,14 +4,14 @@
   notify:
   - handle secured digests collection
   when:
-    - managed_registry_secured
+  - managed_registry_secured
 
 - name: Notify insecured catalog collectors handlers
   command: /bin/true
   notify:
   - handle insecured digests collection
   when:
-    - not managed_registry_secured
+  - not managed_registry_secured
 
 - name: Flush catalog discovery retrieval handlers
   meta: flush_handlers
@@ -22,7 +22,7 @@
   - debug first records of accumualted removal collection
   - handle accumulated removal digests from secured
   when:
-    - managed_registry_secured
+  - managed_registry_secured
 
 - name: Notify inecured digests removal handlers
   command: /bin/true
@@ -30,7 +30,7 @@
   - debug first records of accumualted removal collection
   - handle accumulated removal digests from insecured
   when:
-    - not managed_registry_secured
+  - not managed_registry_secured
 
 - name: Notify cleanup summary report handlers
   command: /bin/true

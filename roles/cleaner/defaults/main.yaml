@@ -1,36 +1,38 @@
 ---
-registry_service: registry
-
+# default process variables values
 default_registry_keep_tags: 1
 default_cleanup_batch_size: 5
 default_dry_run_mode: false
+default_catalog_pagination: 1000
+default_registry_include_patterns: ['library']
+default_registry_service: registry
 
 garbage_collector_enabled: true
 garbage_collector_script: /usr/local/bin/garbage-collector
 garbage_collector_log_dir: /var/log/regstrygc
 garbage_collector_ignore_failures: true
 
-managed_registry_port: "{{ registry_port | default('443') }}"
+# managed process variables values
+managed_registry_port: "{{ registry_port | default('443') | int }}"
 managed_registry_protocol: "{{ registry_protocol | default('https') }}"
 managed_registry_secured: "{{ registry_secured | default(True) | bool }}"
 managed_registry_http_url: "{{ managed_registry_protocol }}://{{ registry_server }}:{{ managed_registry_port }}"
-managed_catalog_pagination: 1000
+managed_registry_service: "{{ registry_service | default(default_registry_service) }}"
 
-managed_dry_run_mode: "{{ dry_run_mode | default(default_dry_run_mode) | bool }}"
+managed_catalog_pagination: "{{ catalog_pagination | default(default_catalog_pagination) | int }}"
+managed_registry_include_patterns: "{{ include_patterns | default(default_registry_include_patterns) | list }}"
 managed_cleanup_batch_size: "{{ cleanup_batch_size | default(default_cleanup_batch_size) | int }}"
 managed_registry_keep_tags: "{{ (registry_keep_tags | default(default_registry_keep_tags) | int) }}"
+managed_dry_run_mode: "{{ dry_run_mode | default(default_dry_run_mode) | bool }}"
 
-default_registry_include_patterns:
-- "library"
-
-managed_registry_include_patterns: "{{ include_patterns | default(default_registry_include_patterns) | list }}"
-
+# process internal variables
 extracted_managed_repos_tags: {}
 unfiltered_reposortories_list: []
 filtered_reposortories_list: []
 images_digests_removal_collection: []
 digests_delete_processed_results: []
 
+# internal summary variables
 images_digests_removal_total: 0
 images_digests_removal_stats:
   success: 0
