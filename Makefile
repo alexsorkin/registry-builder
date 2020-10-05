@@ -71,6 +71,7 @@ prepare:
 	echo "$(BUILD_ARGS)"|tr ";" "\n"|sed 's/\ //g'|sed 's/\:/\:\ /g' >> _environment.yml
 	echo "$(DRY_RUN_MODE)" >> _environment.yml
 	echo "$(GC_MODE)" >> _environment.yml
+	echo "" >> _environment.yml
 
 build:
 	docker build -t devops-tools/registry-builder .

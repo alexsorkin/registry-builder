@@ -82,7 +82,6 @@
   - "{{ list_repositories.json.repositories | list | default([]) }}"
   when:
   - list_repositories is success
-  no_log: True
 
 - name: produce filtered repositories array
   vars:
@@ -97,13 +96,13 @@
     }}"
   with_items:
   - "{{ managed_catalog_include_patterns | list }}"
+  no_log: True
 
 - name: debug filtered repositories collection
   vars:
     filtered_repositories_collection: "{{ (filtered_reposortories_list | list | default([])) }}"
   debug:
     var: filtered_repositories_collection
-    verbosity: 1
 
 - name: collect images tags from secured registry
   vars:
@@ -320,19 +319,5 @@
 - name: produce registry cleaner summary report
   vars:
     registry_cleanup_process_mode: "{% if (managed_dry_run_mode | bool) %}dry_run{% else %}delete{% endif %}"
-    images_digests_removal_statistic:
-    - "Registry cleanup summary report:"
-    - "  Global process definitions:"
-    - "    Registry cleanup process mode: {{ registry_cleanup_process_mode }}"
-    - "    Force registry garbage collection: {{ garbage_collector_enabled | lower }}"
-    - "    Keep tags digests per repository: {{ managed_repository_keep_tags | int }}"
-    - "    Cleanup batch collection size: {{ managed_cleanup_batch_size | int}}"
-    - "  Registry metadata details:"
-    - "    Selected repositories to process: {{ filtered_reposortories_list | length }}"
-    - "    Repositories having tags to delete: {{ extracted_managed_repos_tags| length }}"
-    - "    Repositories digests collected total: {{ images_digests_removal_total | int }}"
-    - "  Registry cleanup results:"
-    - "    Repositories digests removal success: {{ images_digests_removal_stats.success | int }}"
-    - "    Repositories digests removal failed: {{ images_digests_removal_stats.failed | int }}"
   debug:
-    msg: "{{ images_digests_removal_statistic | list }}"
+    msg: "{{ (lookup('template', 'summary_report.j2')).split('\n') | list }}"

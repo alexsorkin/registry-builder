@@ -1,0 +1,13 @@
+Registry cleanup summary report:
+  Global process definitions:
+    Registry cleanup process mode: {{ registry_cleanup_process_mode }}
+    Force registry garbage collection: {{ garbage_collector_enabled | lower }}
+    Keep tags digests per repository: {{ managed_repository_keep_tags | int }}
+    Cleanup batch collection size: {{ managed_cleanup_batch_size | int }}
+  Registry metadata details:
+    Selected repositories to process: {{ filtered_reposortories_list | length }}
+    Repositories having tags to delete: {{ extracted_managed_repos_tags| length }}
+    Repositories digests collected total: {{ images_digests_removal_total | int }}
+  Registry cleanup results:
+    Repositories digests removal success: {{ images_digests_removal_stats.success | int }}
+    Repositories digests removal failed: {{ images_digests_removal_stats.failed | int }}
