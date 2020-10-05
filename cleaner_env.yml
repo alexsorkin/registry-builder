@@ -1,6 +1,0 @@
----
-cleanup_batch_size: 500
-registry_keep_tags: 1
-
-include_patterns:
-- "library"

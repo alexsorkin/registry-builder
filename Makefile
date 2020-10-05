@@ -89,4 +89,4 @@ purge:
 	vagrant destroy -f
 
 regclean: prepare
-	ansible-playbook $(DEBUG_LEVEL) -i inventory/vagrant_ansible_inventory --limit=registry -e "@cleaner_env.yml" -e "@_environment.yml" cleaner.yaml
+	ansible-playbook $(DEBUG_LEVEL) -i inventory --limit=registry -e "@_environment.yml" cleaner.yaml

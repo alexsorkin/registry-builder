@@ -86,8 +86,12 @@
   vars:
     repo_search_pattern: "{{ item }}"
   set_fact:
-    filtered_reposortories_list: "{{ filtered_reposortories_list +
-        (unfiltered_reposortories_list | selectattr('name', 'search', item) | list)
+    filtered_reposortories_list: "{{ 
+      (
+        filtered_reposortories_list
+          | union(unfiltered_reposortories_list | selectattr('name', 'search', item) | list)
+          | unique | list
+      )
     }}"
   with_items:
   - "{{ managed_registry_include_patterns | list }}"
