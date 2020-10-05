@@ -84,13 +84,13 @@
 
 - name: produce filtered repositories array
   vars:
-    repo_search_pattern: "{{ item.name }}"
+    repo_search_pattern: "{{ item }}"
   set_fact:
     filtered_reposortories_list: "{{ filtered_reposortories_list +
-        (unfiltered_reposortories_list | selectattr('name', 'search', repo_search_pattern) | list)
+        (unfiltered_reposortories_list | selectattr('name', 'search', item) | list)
     }}"
   with_items:
-  - "{{ managed_registry_folders | list }}"
+  - "{{ managed_registry_include_patterns | list }}"
 
 - name: debug filtered repositories array
   vars:
@@ -168,8 +168,6 @@
     loop_var: image_repo
   when:
   - images_tags is success
-#    - ( ((image_repo.value | list | length) > (managed_registry_keep_tags | int)) | bool )
-
 
 ################################PERFORM DIGEST REMOVAL##############################
 
@@ -284,7 +282,9 @@
     systemctl start {{ registry_service }}
   become: yes
 
-- name: handle playbook report processing
+################################PRODUCE PROCESS REPORT##############################
+
+- name: handle registry cleanup report processing
   command: /bin/true
   notify:
   - debug digests delete processed results

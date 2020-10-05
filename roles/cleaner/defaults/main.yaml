@@ -7,8 +7,8 @@ default_dry_run_mode: false
 
 garbage_collector_enabled: true
 garbage_collector_script: /usr/local/bin/garbage-collector
-garbage_collector_log_dir: /var/log/registry-gc
-garbage_collector_ignore_failures: false
+garbage_collector_log_dir: /var/log/regstrygc
+garbage_collector_ignore_failures: true
 
 managed_registry_port: "{{ registry_port | default('443') }}"
 managed_registry_protocol: "{{ registry_protocol | default('https') }}"
@@ -20,11 +20,10 @@ managed_dry_run_mode: "{{ dry_run_mode | default(default_dry_run_mode) | bool }}
 managed_cleanup_batch_size: "{{ cleanup_batch_size | default(default_cleanup_batch_size) | int }}"
 managed_registry_keep_tags: "{{ (registry_keep_tags | default(default_registry_keep_tags) | int) }}"
 
-default_managed_registry_folders:
-- name: "library"
-  preserve: 2 # individual tags preserved is not implemented
+default_registry_include_patterns:
+- "library"
 
-managed_registry_folders: "{{ registry_folders | default(default_managed_registry_folders) | list }}"
+managed_registry_include_patterns: "{{ include_patterns | default(default_registry_include_patterns) | list }}"
 
 extracted_managed_repos_tags: {}
 unfiltered_reposortories_list: []

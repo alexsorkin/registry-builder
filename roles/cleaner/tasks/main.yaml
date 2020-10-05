@@ -21,7 +21,6 @@
   notify:
   - debug first records of accumualted removal collection
   - handle accumulated removal digests from secured
-  - handle playbook report processing
   when:
     - managed_registry_secured
 
@@ -30,6 +29,10 @@
   notify:
   - debug first records of accumualted removal collection
   - handle accumulated removal digests from insecured
-  - handle playbook report processing
   when:
     - not managed_registry_secured
+
+- name: Notify cleanup summary report handlers
+  command: /bin/true
+  notify:
+  - handle registry cleanup report processing
