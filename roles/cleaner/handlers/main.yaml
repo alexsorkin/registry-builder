@@ -8,14 +8,13 @@
   - debug raw catalog retieval result
   - produce unfiltered dict with retrieved repos
   - produce filtered repositories array
-  - debug filtered repositories array
+  - debug filtered repositories collection
   - collect images tags from secured registry
   - extract repos tags maps from retrived json
-  - debug extracted repos tags
   - debug outer loop data for tag metadata collector
   - include nested per repo tag metadata collector
   when:
-    - managed_registry_secured
+  - managed_registry_secured
   
 - name: handle insecured digests collection
   command: /bin/true
@@ -24,14 +23,13 @@
   - debug raw catalog retieval result
   - produce unfiltered dict with retrieved repos
   - produce filtered repositories array
-  - debug filtered repositories array
+  - debug filtered repositories collection
   - collect images tags from insecured registry
   - extract repos tags maps from retrived json
-  - debug extracted repos tags
   - debug outer loop data for tag metadata collector
   - include nested per repo tag metadata collector
   when:
-    - not managed_registry_secured
+  - not managed_registry_secured
 
 - name: collect repositories from secured registry catalog
   uri:
@@ -59,11 +57,14 @@
     return_content: yes
     status_code: 200,201,302
   register: list_repositories
+  retries: 1
+  delay: 2
+  until: list_repositories is success
   ignore_errors: yes
 
 - name: debug raw catalog retieval result
   vars:
-    raw_catalog_list_result: "{{ list_repositories.json }}"
+    raw_catalog_list_result: "{{ list_repositories.json | from_json }}"
   debug:
     var: raw_catalog_list_result
     verbosity: 2
@@ -78,9 +79,10 @@
       ]
     }}"
   with_items:
-  - "{{ list_repositories.json.repositories | default([]) }}"
+  - "{{ list_repositories.json.repositories | list | default([]) }}"
   when:
   - list_repositories is success
+  no_log: True
 
 - name: produce filtered repositories array
   vars:
@@ -89,21 +91,19 @@
     filtered_reposortories_list: "{{ 
       (
         filtered_reposortories_list
-          | union(unfiltered_reposortories_list | selectattr('name', 'search', item) | list)
+          | union(unfiltered_reposortories_list | selectattr('name', 'search', repo_search_pattern) | list)
           | unique | list
       )
     }}"
   with_items:
   - "{{ managed_catalog_include_patterns | list }}"
 
-- name: debug filtered repositories array
+- name: debug filtered repositories collection
   vars:
-    filtered_array_item: "{{ item }}"
+    filtered_repositories_collection: "{{ (filtered_reposortories_list | list | default([])) }}"
   debug:
-    var: filtered_array_item
+    var: filtered_repositories_collection
     verbosity: 1
-  with_items:
-  - "{{ (filtered_reposortories_list | default([]) | list ) }}"
 
 - name: collect images tags from secured registry
   vars:
@@ -121,7 +121,8 @@
   until: images_tags is success
   ignore_errors: yes
   with_items:
-  - "{{ (filtered_reposortories_list | default([]) | list ) }}"
+  - "{{ (filtered_reposortories_list | list | default([])) }}"
+  no_log: True
 
 - name: collect images tags from insecured registry
   vars:
@@ -136,7 +137,8 @@
   until: images_tags is success
   ignore_errors: yes
   with_items:
-  - "{{ (filtered_reposortories_list | default([]) | list ) }}"
+  - "{{ (filtered_reposortories_list | list | default([])) }}"
+  no_log: True
 
 - name: extract repos tags maps from retrived json
   set_fact:
@@ -148,11 +150,6 @@
   - ( ((item.json.tags | list | length | int) > (managed_repository_keep_tags | int)) | bool )
   no_log: True
 
-- name: debug extracted repos tags
-  debug:
-    var: extracted_managed_repos_tags
-    verbosity: 1
-
 - name: debug outer loop data for tag metadata collector
   vars:
     outer_loop_data: "{{ extracted_managed_repos_tags }}"
@@ -160,7 +157,7 @@
     var: outer_loop_data
     verbosity: 2
   when:
-  - images_tags is success
+  - (extracted_managed_repos_tags | list | default([]) | length) > 0
 
 - name: include nested per repo tag metadata collector
   vars:
@@ -171,14 +168,14 @@
   loop_control:
     loop_var: image_repo
   when:
-  - images_tags is success
+  - (extracted_managed_repos_tags | list | default([]) | length) > 0
   - ((images_digests_removal_collection | default([]) | list | length) + (image_repo.value | list | length) - (managed_repository_keep_tags | int)) <= (managed_cleanup_batch_size | int)
 
 ################################PERFORM DIGEST REMOVAL##############################
 
 - name: debug first records of accumualted removal collection
   vars:
-    images_digests_removal_records: "{{ (images_digests_removal_collection | default([]) | list)[-200:] }}"
+    images_digests_removal_records: "{{ (images_digests_removal_collection | list | default([]))[-200:] }}"
   debug:
     var: images_digests_removal_records
 
@@ -325,12 +322,17 @@
     registry_cleanup_process_mode: "{% if (managed_dry_run_mode | bool) %}dry_run{% else %}delete{% endif %}"
     images_digests_removal_statistic:
     - "Registry cleanup summary report:"
-    - "  Registry cleanup process mode: {{ registry_cleanup_process_mode }}"
-    - "  Force registry garbage collection: {{ garbage_collector_enabled | lower }}"
-    - "  Selected repositories to process: {{ filtered_reposortories_list | length }}"
-    - "  Repositories having tags to delete: {{ extracted_managed_repos_tags| length }}"
-    - "  Repositories digests collected total: {{ images_digests_removal_total | int }}"
-    - "  Repositories digests removal success: {{ images_digests_removal_stats.success | int }}"
-    - "  Repositories digests removal failed: {{ images_digests_removal_stats.failed | int }}"
+    - "  Global process definitions:"
+    - "    Registry cleanup process mode: {{ registry_cleanup_process_mode }}"
+    - "    Force registry garbage collection: {{ garbage_collector_enabled | lower }}"
+    - "    Keep tags digests per repository: {{ managed_repository_keep_tags | int }}"
+    - "    Cleanup batch collection size: {{ managed_cleanup_batch_size | int}}"
+    - "  Registry metadata details:"
+    - "    Selected repositories to process: {{ filtered_reposortories_list | length }}"
+    - "    Repositories having tags to delete: {{ extracted_managed_repos_tags| length }}"
+    - "    Repositories digests collected total: {{ images_digests_removal_total | int }}"
+    - "  Registry cleanup results:"
+    - "    Repositories digests removal success: {{ images_digests_removal_stats.success | int }}"
+    - "    Repositories digests removal failed: {{ images_digests_removal_stats.failed | int }}"
   debug:
     msg: "{{ images_digests_removal_statistic | list }}"
