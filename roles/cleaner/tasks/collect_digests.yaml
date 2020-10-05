@@ -69,7 +69,7 @@
 
 - name: filtering and sorting repos tags array
   set_fact:
-    sorted_images_tags_collection: "{{ (unsorted_images_tags_collection | list | sort(attribute='tag_created'))[:-(managed_registry_keep_tags | int)] | list }}"
+    sorted_images_tags_collection: "{{ (unsorted_images_tags_collection | list | sort(attribute='tag_created'))[:-(managed_repository_keep_tags | int)] | list }}"
   when:
   no_log: True
 
@@ -153,8 +153,8 @@
 - name: accumulate digests for removal in global array
   set_fact:
     images_digests_removal_collection: "{{ (images_digests_removal_collection + (images_digests_tags_collection | default([])) ) | list }}"
-  when:
-  - not (((images_digests_removal_collection + (images_digests_tags_collection | default([]) | list) ) | list | length) >= (managed_cleanup_batch_size | int))
+#  when:
+#  - not (((images_digests_removal_collection + (images_digests_tags_collection | default([]) | list) ) | list | length) >= (managed_cleanup_batch_size | int))
   no_log: True
 
 - name: debug accumulated batch collection size

@@ -94,7 +94,7 @@
       )
     }}"
   with_items:
-  - "{{ managed_registry_include_patterns | list }}"
+  - "{{ managed_catalog_include_patterns | list }}"
 
 - name: debug filtered repositories array
   vars:
@@ -145,7 +145,7 @@
   - "{{ images_tags.results | default([]) }}"
   when:
   - images_tags is success
-  - ( ((item.json.tags | list | length | int) > (managed_registry_keep_tags | int)) | bool )
+  - ( ((item.json.tags | list | length | int) > (managed_repository_keep_tags | int)) | bool )
   no_log: True
 
 - name: debug extracted repos tags
@@ -172,6 +172,7 @@
     loop_var: image_repo
   when:
   - images_tags is success
+  - ((images_digests_removal_collection | default([]) | list | length) + (image_repo.value | list | length) - (managed_repository_keep_tags | int)) <= (managed_cleanup_batch_size | int)
 
 ################################PERFORM DIGEST REMOVAL##############################
 
