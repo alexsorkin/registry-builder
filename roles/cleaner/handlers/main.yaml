@@ -180,7 +180,7 @@
 
 - name: debug first records of accumualted removal collection
   vars:
-    images_digests_removal_records: "{{ (images_digests_removal_collection | list | default([]))[-200:] }}"
+    images_digests_removal_records: "{{ (images_digests_removal_collection | default([]) | list | default([]))[-200:] }}"
   debug:
     var: images_digests_removal_records
     verbosity: 1
@@ -322,7 +322,7 @@
 
 - name: produce registry cleaner summary stats
   set_fact:
-    images_digests_removal_total: "{{ digests_delete_processed_results | list | length }}"
+    images_digests_removal_total: "{{ images_digests_removal_collection | default([]) | list | length }}"
     images_digests_removal_stats:
       success: "{% if not (managed_dry_run_mode | bool) %}{{ digests_delete_processed_results | list | selectattr('failed', 'equalto', False) | list | length }}{% else %}0{% endif %}"
       failed: "{% if not (managed_dry_run_mode | bool) %}{{ digests_delete_processed_results | list | selectattr('failed', 'equalto', True) | list | length }}{% else %}0{% endif %}"
