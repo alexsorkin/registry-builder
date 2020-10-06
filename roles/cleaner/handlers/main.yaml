@@ -100,7 +100,6 @@
     }}"
   with_items:
   - "{{ managed_catalog_include_patterns | list }}"
-  delegate_to: localhost
   no_log: True
 
 - name: debug filtered repositories collection
@@ -154,7 +153,6 @@
   when:
   - images_tags is success
   - ( ((item.json.tags | list | length | int) > (managed_repository_keep_tags | int)) | bool )
-  delegate_to: localhost
   no_log: True
 
 - name: debug outer loop data for tag metadata collector
@@ -248,7 +246,6 @@
     digests_delete_processed_results: "{{ delete_images.results }}"
   when:
   - (delete_images.results | list | length) > 0
-  delegate_to: localhost
 
 - name: check delete images is supported by registry
   debug:
@@ -328,7 +325,6 @@
     images_digests_removal_stats:
       success: "{% if not (managed_dry_run_mode | bool) %}{{ digests_delete_processed_results | list | selectattr('failed', 'equalto', False) | list | length }}{% else %}0{% endif %}"
       failed: "{% if not (managed_dry_run_mode | bool) %}{{ digests_delete_processed_results | list | selectattr('failed', 'equalto', True) | list | length }}{% else %}0{% endif %}"
-  delegate_to: localhost
 
 - name: produce registry cleaner summary report
   vars:

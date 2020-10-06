@@ -3,7 +3,6 @@
   set_fact:
     unsorted_images_tags_collection: []
     images_digests_tags_collection: []
-  delegate_to: localhost
 
 - name: collect tags metadata from secured registry
   vars:
@@ -49,7 +48,6 @@
     tags_metadata: "{{ tags_metadata_from_secured }}"
   when:
   - managed_registry_secured
-  delegate_to: localhost
   no_log: True
 
 - name: merge tags metadata from insecured source
@@ -57,7 +55,6 @@
     tags_metadata: "{{ tags_metadata_from_insecured }}"
   when:
   - not managed_registry_secured
-  delegate_to: localhost
   no_log: True
 
 - name: debug retrieved tags metadata colleciton size
@@ -78,7 +75,6 @@
   when:
   - ((images_digests_removal_collection | default([]) | list | length) + (unsorted_images_tags_collection | default([]) | list | length) - (managed_repository_keep_tags | int)) < (managed_cleanup_batch_size | int)
   - (item.content | from_json).tag is defined
-  delegate_to: localhost
   no_log: True
 
 - name: debug constructed tags to dates collection size
@@ -91,7 +87,6 @@
   set_fact:
     sorted_images_tags_collection: "{{ (unsorted_images_tags_collection | list | sort(attribute='tag_created'))[:-(managed_repository_keep_tags | int)] | list }}"
   when:
-  delegate_to: localhost
   no_log: True
 
 - name: debug constructed filtered tags for digests size
@@ -154,14 +149,13 @@
     filtered_images_digests: "{{ filtered_images_digests_from_insecured | default(omit) }}"
   when:
   - not managed_registry_secured
-  delegate_to: localhost
   no_log: True
 
 - name: debug filtered images digests collection size
   vars:
-    filtered_images_collection_size: "{{ filtered_images_digests.results | default([]) | list | length }}"
+    filtered_digests_collection_size: "{{ filtered_images_digests.results | default([]) | list | length }}"
   debug:
-    var: filtered_images_collection_size
+    var: filtered_digests_collection_size
 
 - name: produce tags array with images digests
   set_fact:
@@ -174,19 +168,11 @@
   - "{{ filtered_images_digests.results | default([]) | list }}"
   when:
   - item.item.repo_tag is defined
-  delegate_to: localhost
   no_log: True
-
-- name: debug retrieved images digests collection size
-  vars:
-    images_digests_collection_size: "{{ images_digests_tags_collection | list | length }}"
-  debug:
-    var: images_digests_collection_size
 
 - name: accumulate digests for removal in global array
   set_fact:
     images_digests_removal_collection: "{{ (images_digests_removal_collection + (images_digests_tags_collection | default([])) ) | list }}"
-  delegate_to: localhost
   no_log: True
 
 - name: debug accumulated to this point batch collection size
