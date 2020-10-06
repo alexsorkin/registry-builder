@@ -60,12 +60,11 @@
   delegate_to: localhost
   no_log: True
 
-- name: debug retrieved tags metadata content
+- name: debug retrieved tags metadata colleciton size
   vars:
-    metadata_results: "{{ (tags_metadata.results | from_json) }}"
+    metadata_results_size: "{{ (tags_metadata.results | list | length) }}"
   debug:
-    var: metadata_results
-    verbosity: 3
+    var: metadata_results_size
 
 - name: produce tags array with creation dates
   set_fact:
@@ -82,6 +81,12 @@
   delegate_to: localhost
   no_log: True
 
+- name: debug constructed tags to dates collection size
+  vars:
+    tags_to_dates_collection_size: "{{ (unsorted_images_tags_collection | list | length) }}"
+  debug:
+    var: tags_to_dates_collection_size
+
 - name: filtering and sorting repos tags array
   set_fact:
     sorted_images_tags_collection: "{{ (unsorted_images_tags_collection | list | sort(attribute='tag_created'))[:-(managed_repository_keep_tags | int)] | list }}"
@@ -89,7 +94,13 @@
   delegate_to: localhost
   no_log: True
 
-- name: debug sorted and filtered tags aray
+- name: debug constructed filtered tags for digests size
+  vars:
+    filtered_tags_collection_size: "{{ (sorted_images_tags_collection | list | length) }}"
+  debug:
+    var: filtered_tags_collection_size
+
+- name: debug constructed filtered tags for digests content
   debug:
     var: sorted_images_tags_collection
     verbosity: 2
@@ -131,14 +142,14 @@
   - (sorted_images_tags_collection | default([]) | list | length) > 0
   no_log: True
 
-- name: merge images digests form secured source
+- name: merge images digests from secured source
   set_fact:
     filtered_images_digests: "{{ filtered_images_digests_from_secured | default(omit) }}"
   when:
   - managed_registry_secured
   no_log: True
 
-- name: merge images digests form insecured source
+- name: merge images digests from insecured source
   set_fact:
     filtered_images_digests: "{{ filtered_images_digests_from_insecured | default(omit) }}"
   when:
@@ -146,12 +157,11 @@
   delegate_to: localhost
   no_log: True
 
-- name: debug retrieved images digests
+- name: debug filtered images digests collection size
   vars:
-    image_digest_item: "{{ filtered_images_digests.results | default([]) | list }}"
+    filtered_images_collection_size: "{{ filtered_images_digests.results | default([]) | list | length }}"
   debug:
-    var: image_digest_item
-    verbosity: 2
+    var: filtered_images_collection_size
 
 - name: produce tags array with images digests
   set_fact:
@@ -167,10 +177,11 @@
   delegate_to: localhost
   no_log: True
 
-- name: debug retrieved images digests for removal
+- name: debug retrieved images digests collection size
+  vars:
+    images_digests_collection_size: "{{ images_digests_tags_collection | list | length }}"
   debug:
-    var: images_digests_tags_collection
-    verbosity: 1
+    var: images_digests_collection_size
 
 - name: accumulate digests for removal in global array
   set_fact:
@@ -178,6 +189,6 @@
   delegate_to: localhost
   no_log: True
 
-- name: debug accumulated batch collection size
+- name: debug accumulated to this point batch collection size
   debug:
     msg: "Accumulated digests batch size after '{{ metadata_repo }}': {{ images_digests_removal_collection | default([]) | list | length }}"
