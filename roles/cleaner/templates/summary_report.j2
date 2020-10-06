@@ -5,9 +5,9 @@
       Force registry garbage collection: {{ garbage_collector_enabled | lower }}
       Keep tags digests per repository: {{ managed_repository_keep_tags | int }}
       Cleanup batch collection size: {{ managed_cleanup_batch_size | int }}
-    Registry metadata details:
-      Selected repositories from catalog: {{ filtered_reposortories_list | length }}
-      Filtered repositories tags inspected: {{ extracted_managed_repos_tags| length }}
+    Registry repositories inspection:
+      Selected repositories from catalog: {{ filtered_reposortories_list | list | length }}
+      Repositories having tags to remove: {{ extracted_managed_repos_tags | list | length }}
     Registry cleanup results:
       Repositories digests collected total: {{ images_digests_removal_total | int }}
       Repositories digests removal success: {{ images_digests_removal_stats.success | int }}

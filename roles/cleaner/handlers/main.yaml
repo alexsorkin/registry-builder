@@ -125,7 +125,7 @@
   until: images_tags is success
   ignore_errors: yes
   with_items:
-  - "{{ (filtered_reposortories_list | list | default([])) }}"
+  - "{{ filtered_reposortories_list | list | default([]) }}"
   no_log: True
 
 - name: collect images tags from insecured registry
@@ -142,7 +142,7 @@
   until: images_tags is success
   ignore_errors: yes
   with_items:
-  - "{{ (filtered_reposortories_list | list | default([])) }}"
+  - "{{ filtered_reposortories_list | list | default([]) }}"
   no_log: True
 
 - name: extract repos tags maps from retrived json
@@ -183,6 +183,7 @@
     images_digests_removal_records: "{{ (images_digests_removal_collection | list | default([]))[-200:] }}"
   debug:
     var: images_digests_removal_records
+    verbosity: 1
 
 - name: handle accumulated removal digests from secured
   command: /bin/true
@@ -222,8 +223,8 @@
   delay: 2
   until: delete_images is success
   with_items:
-  - "{{ (images_digests_removal_collection | default([]) | list ) }}"
-  no_log: True
+  - "{{ images_digests_removal_collection | default([]) | list }}"
+#  no_log: True
 
 - name: delete images selected from insecured registry
   vars:
@@ -238,8 +239,8 @@
   delay: 2
   until: delete_images is success
   with_items:
-  - "{{ (images_digests_removal_collection | default([]) | list ) }}"
-  no_log: True
+  - "{{ images_digests_removal_collection | default([]) | list  }}"
+#  no_log: True
 
 - name: images digests tried to process
   set_fact:

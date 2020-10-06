@@ -59,9 +59,9 @@
 
 - name: debug retrieved tags metadata colleciton size
   vars:
-    metadata_results_size: "{{ (tags_metadata.results | list | length) }}"
+    metadata_collection_size: "{{ (tags_metadata.results | list | length) }}"
   debug:
-    var: metadata_results_size
+    var: metadata_collection_size
 
 - name: produce tags array with creation dates
   set_fact:
@@ -114,7 +114,7 @@
     status_code: 200,201,302
   register: filtered_images_digests_from_secured
   ignore_errors: True
-  with_items: "{{ sorted_images_tags_collection | default([]) | list }}"
+  with_items: "{{ sorted_images_tags_collection | default([]) | list | batch(10) | list }}"
   when:
   - managed_registry_secured
   - (sorted_images_tags_collection | default([]) | list | length) > 0
@@ -131,7 +131,7 @@
     status_code: 200,201,302
   register: filtered_images_digests_from_insecured
   ignore_errors: True
-  with_items: "{{ sorted_images_tags_collection | default([]) | list }}"
+  with_items: "{{ sorted_images_tags_collection | default([]) | list | batch(10) | list }}"
   when:
   - not managed_registry_secured
   - (sorted_images_tags_collection | default([]) | list | length) > 0
