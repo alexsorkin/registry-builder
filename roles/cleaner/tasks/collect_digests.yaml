@@ -71,7 +71,7 @@
   with_items:
   - "{{ tags_metadata.results }}"
   when:
-  - ((images_digests_removal_collection | default([]) | list | length) + (unsorted_images_tags_collection | list | length) - (managed_repository_keep_tags | int)) <= (managed_cleanup_batch_size | int)
+  - ((images_digests_removal_collection | default([]) | list | length) + (unsorted_images_tags_collection | list | length) - (managed_repository_keep_tags | int)) < (managed_cleanup_batch_size | int)
   - (item.content | from_json).tag is defined
   delegate_to: localhost
   no_log: True

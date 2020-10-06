@@ -176,8 +176,7 @@
     loop_var: image_repo
   when:
   - (extracted_managed_repos_tags | list | default([]) | length) > 0
-  - (images_digests_removal_collection | default([]) | list | length) <= (managed_cleanup_batch_size | int)
-#  - ((images_digests_removal_collection | default([]) | list | length) + (image_repo.value | list | length) - (managed_repository_keep_tags | int)) <= (managed_cleanup_batch_size | int)
+  - (images_digests_removal_collection | default([]) | list | length) < (managed_cleanup_batch_size | int)
 
 ################################PERFORM DIGEST REMOVAL##############################
 
