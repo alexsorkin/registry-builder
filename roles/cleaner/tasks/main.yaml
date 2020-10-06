@@ -1,4 +1,12 @@
 ---
+- name: Produce registry specificaiton
+  set_fact:
+    managed_registry_specification: "{{ managed_registry_spec_template }}"
+
+- name: Debug registry specificaiton
+  debug:
+    var: managed_registry_specification
+
 - name: Notify secured catalog collectors handlers
   command: /bin/true
   notify:

@@ -3,10 +3,13 @@
   set_fact:
     unsorted_images_tags_collection: []
     images_digests_tags_collection: []
+  delegate_to: localhost
 
 - name: collect tags metadata from secured registry
+  vars:
+    registry_api_url: "{{ managed_registry_specification.base_api_url }}"
   uri:
-    url: "{{ managed_registry_http_url }}/v2/{{ metadata_repo }}/manifests/{{ item }}"
+    url: "{{ registry_api_url }}/{{ metadata_repo }}/manifests/{{ item }}"
     method: GET
     user: "{{ registry_username }}"
     password: "{{ registry_password }}"
@@ -21,8 +24,10 @@
   no_log: True
 
 - name: collect tags metadata from insecured registry
+  vars:
+    registry_api_url: "{{ managed_registry_specification.base_api_url }}"
   uri:
-    url: "{{ managed_registry_http_url }}/v2/{{ metadata_repo }}/manifests/{{ item }}"
+    url: "{{ registry_api_url }}/{{ metadata_repo }}/manifests/{{ item }}"
     method: GET
     return_content: yes
     status_code: 200,201,302
@@ -38,6 +43,7 @@
     tags_metadata: "{{ tags_metadata_from_secured }}"
   when:
   - managed_registry_secured
+  delegate_to: localhost
   no_log: True
 
 - name: merge tags metadata from insecured source
@@ -45,6 +51,7 @@
     tags_metadata: "{{ tags_metadata_from_insecured }}"
   when:
   - not managed_registry_secured
+  delegate_to: localhost
   no_log: True
 
 - name: debug retrieved tags metadata content
@@ -64,13 +71,16 @@
   with_items:
   - "{{ tags_metadata.results }}"
   when:
+  - ((images_digests_removal_collection | default([]) | list | length) + (unsorted_images_tags_collection | list | length) - (managed_repository_keep_tags | int)) <= (managed_cleanup_batch_size | int)
   - (item.content | from_json).tag is defined
+  delegate_to: localhost
   no_log: True
 
 - name: filtering and sorting repos tags array
   set_fact:
     sorted_images_tags_collection: "{{ (unsorted_images_tags_collection | list | sort(attribute='tag_created'))[:-(managed_repository_keep_tags | int)] | list }}"
   when:
+  delegate_to: localhost
   no_log: True
 
 - name: debug sorted and filtered tags aray
@@ -79,8 +89,10 @@
     verbosity: 2
 
 - name: collect images digests from secured registry
+  vars:
+    registry_api_url: "{{ managed_registry_specification.base_api_url }}"
   uri:
-    url: "{{ managed_registry_http_url }}/v2/{{ item.repo_name }}/manifests/{{ item.repo_tag }}"
+    url: "{{ registry_api_url }}/{{ item.repo_name }}/manifests/{{ item.repo_tag }}"
     method: GET
     headers:
       Accept: "application/vnd.docker.distribution.manifest.v2+json"
@@ -97,8 +109,10 @@
   no_log: True
 
 - name: collect images digests from insecured registry
+  vars:
+    registry_api_url: "{{ managed_registry_specification.base_api_url }}"
   uri:
-    url: "{{ managed_registry_http_url }}/v2/{{ item.repo_name }}/manifests/{{ item.repo_tag }}"
+    url: "{{ registry_api_url }}/{{ item.repo_name }}/manifests/{{ item.repo_tag }}"
     method: GET
     headers:
       Accept: "application/vnd.docker.distribution.manifest.v2+json"
@@ -123,6 +137,7 @@
     filtered_images_digests: "{{ filtered_images_digests_from_insecured | default(omit) }}"
   when:
   - not managed_registry_secured
+  delegate_to: localhost
   no_log: True
 
 - name: debug retrieved images digests
@@ -143,6 +158,7 @@
   - "{{ filtered_images_digests.results | default([]) | list }}"
   when:
   - item.item.repo_tag is defined
+  delegate_to: localhost
   no_log: True
 
 - name: debug retrieved images digests for removal
@@ -153,8 +169,7 @@
 - name: accumulate digests for removal in global array
   set_fact:
     images_digests_removal_collection: "{{ (images_digests_removal_collection + (images_digests_tags_collection | default([])) ) | list }}"
-#  when:
-#  - not (((images_digests_removal_collection + (images_digests_tags_collection | default([]) | list) ) | list | length) >= (managed_cleanup_batch_size | int))
+  delegate_to: localhost
   no_log: True
 
 - name: debug accumulated batch collection size

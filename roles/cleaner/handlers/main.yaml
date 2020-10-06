@@ -32,8 +32,10 @@
   - not managed_registry_secured
 
 - name: collect repositories from secured registry catalog
+  vars:
+    registry_api_url: "{{ managed_registry_specification.base_api_url }}"
   uri:
-    url: "{{ managed_registry_http_url }}/v2/_catalog?n={{ managed_catalog_pagination }}"
+    url: "{{ registry_api_url }}/_catalog?n={{ managed_catalog_pagination }}"
     method: GET
     headers:
       Accept: "application/json; charset=utf-8"
@@ -49,8 +51,10 @@
   ignore_errors: yes
 
 - name: collect repositories from insecured registry catalog
+  vars:
+    registry_api_url: "{{ managed_registry_specification.base_api_url }}"
   uri:
-    url: "{{ managed_registry_http_url }}/v2/_catalog?n={{ managed_catalog_pagination }}"
+    url: "{{ registry_api_url }}/_catalog?n={{ managed_catalog_pagination }}"
     method: GET
     headers:
       Accept: "application/json; charset=utf-8"
@@ -96,6 +100,7 @@
     }}"
   with_items:
   - "{{ managed_catalog_include_patterns | list }}"
+  delegate_to: localhost
   no_log: True
 
 - name: debug filtered repositories collection
@@ -107,8 +112,9 @@
 - name: collect images tags from secured registry
   vars:
     filtered_array_item: "{{ item.name }}"
+    registry_api_url: "{{ managed_registry_specification.base_api_url }}"
   uri:
-    url: "{{ managed_registry_http_url }}/v2/{{ filtered_array_item }}/tags/list"
+    url: "{{ registry_api_url }}/{{ filtered_array_item }}/tags/list"
     method: GET
     user: "{{ registry_username }}"
     password: "{{ registry_password }}"
@@ -126,8 +132,9 @@
 - name: collect images tags from insecured registry
   vars:
     filtered_array_item: "{{ item.name }}"
+    registry_api_url: "{{ managed_registry_specification.base_api_url }}"
   uri:
-    url: "{{ managed_registry_http_url }}/v2/{{ filtered_array_item }}/tags/list"
+    url: "{{ registry_api_url }}/{{ filtered_array_item }}/tags/list"
     method: GET
     status_code: 200,201,302
   register: images_tags
@@ -147,6 +154,7 @@
   when:
   - images_tags is success
   - ( ((item.json.tags | list | length | int) > (managed_repository_keep_tags | int)) | bool )
+  delegate_to: localhost
   no_log: True
 
 - name: debug outer loop data for tag metadata collector
@@ -168,7 +176,8 @@
     loop_var: image_repo
   when:
   - (extracted_managed_repos_tags | list | default([]) | length) > 0
-  - ((images_digests_removal_collection | default([]) | list | length) + (image_repo.value | list | length) - (managed_repository_keep_tags | int)) <= (managed_cleanup_batch_size | int)
+  - (images_digests_removal_collection | default([]) | list | length) <= (managed_cleanup_batch_size | int)
+#  - ((images_digests_removal_collection | default([]) | list | length) + (image_repo.value | list | length) - (managed_repository_keep_tags | int)) <= (managed_cleanup_batch_size | int)
 
 ################################PERFORM DIGEST REMOVAL##############################
 
@@ -201,8 +210,10 @@
   - not (managed_dry_run_mode | default(False) | bool)
 
 - name: delete images selected from secured registry
+  vars:
+    registry_api_url: "{{ managed_registry_specification.base_api_url }}"
   uri:
-    url: "{{ managed_registry_http_url }}/v2/{{ item.repo_name }}/manifests/{{ item.image_digest }}"
+    url: "{{ registry_api_url }}/{{ item.repo_name }}/manifests/{{ item.image_digest }}"
     method: DELETE
     user: "{{ registry_username }}"
     password: "{{ registry_password }}"
@@ -218,8 +229,10 @@
   no_log: True
 
 - name: delete images selected from insecured registry
+  vars:
+    registry_api_url: "{{ managed_registry_specification.base_api_url }}"
   uri:
-    url: "{{ managed_registry_http_url }}/v2/{{ item.repo_name }}/manifests/{{ item.image_digest }}"
+    url: "{{ registry_api_url }}/{{ item.repo_name }}/manifests/{{ item.image_digest }}"
     method: DELETE
     status_code: 202
   register: delete_images
@@ -236,6 +249,7 @@
     digests_delete_processed_results: "{{ delete_images.results }}"
   when:
   - (delete_images.results | list | length) > 0
+  delegate_to: localhost
 
 - name: check delete images is supported by registry
   debug:
@@ -315,6 +329,7 @@
     images_digests_removal_stats:
       success: "{% if not (managed_dry_run_mode | bool) %}{{ digests_delete_processed_results | list | selectattr('failed', 'equalto', False) | list | length }}{% else %}0{% endif %}"
       failed: "{% if not (managed_dry_run_mode | bool) %}{{ digests_delete_processed_results | list | selectattr('failed', 'equalto', True) | list | length }}{% else %}0{% endif %}"
+  delegate_to: localhost
 
 - name: produce registry cleaner summary report
   vars:

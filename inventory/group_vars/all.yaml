@@ -1,6 +1,6 @@
 ---
 cleanup_batch_size: 2
-repository_keep_tags: 1
+repository_keep_tags: 2
 
 catalog_include_patterns:
 - "library"

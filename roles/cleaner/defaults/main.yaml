@@ -6,6 +6,8 @@ default_dry_run_mode: false
 default_catalog_pagination: 1000
 default_catalog_include_patterns: ['library']
 default_registry_service: registry
+#default_registry_name: private # artifactory, bintray or dockerhub
+default_registry_type: "distribution"
 
 garbage_collector_enabled: true
 garbage_collector_script: /usr/local/bin/garbage-collector
@@ -13,6 +15,8 @@ garbage_collector_log_dir: /var/log/regstrygc
 garbage_collector_ignore_failures: true
 
 # managed registry variables values
+managed_registry_type: "{{ registry_type | default(default_registry_type) }}"
+managed_registry_name: "{{ registry_name | default(omit) }}"
 managed_registry_port: "{{ registry_port | default('443') | int }}"
 managed_registry_protocol: "{{ registry_protocol | default('https') }}"
 managed_registry_secured: "{{ registry_secured | default(True) | bool }}"
@@ -26,15 +30,37 @@ managed_cleanup_batch_size: "{{ cleanup_batch_size | default(default_cleanup_bat
 managed_repository_keep_tags: "{{ (repository_keep_tags | default(default_repository_keep_tags) | int) }}"
 managed_dry_run_mode: "{{ dry_run_mode | default(default_dry_run_mode) | bool }}"
 
-# process internal variables
+# process internal variables - DO NOT modify
 extracted_managed_repos_tags: {}
 unfiltered_reposortories_list: []
 filtered_reposortories_list: []
 images_digests_removal_collection: []
 digests_delete_processed_results: []
+managed_registry_specification: {}
 
-# internal summary variables
+# internal summary variables - DO NOT modify
 images_digests_removal_total: 0
 images_digests_removal_stats:
   success: 0
   failed: 0
+
+# internal registries classes - DO NOT modify
+proprietary_registries_specs:
+- type: distribution
+  base_api_path: /v2
+  service_type: systemd
+  needs_gc_run: true
+- type: harbor
+  base_api_path: /v2
+  service_type: systemd
+  needs_gc_run: true
+- type: artifactory
+  base_api_path: /artifactory/api/docker/{{ managed_registry_name }}/v2
+  service_type: systemd
+  needs_gc_run: false
+
+# internal managed registry spec - DO NOT modify
+managed_registry_spec_template:
+  base_api_url: "{{ managed_registry_http_url }}{{ (proprietary_registries_specs | list | selectattr('type', 'equalto', managed_registry_type) | list | first).base_api_path }}"
+  service_type: "{{ (proprietary_registries_specs | list | selectattr('type', 'equalto', managed_registry_type) | list | first).service_type }}"
+  needs_gc_run: "{{ (proprietary_registries_specs | list | selectattr('type', 'equalto', managed_registry_type) | list | first).needs_gc_run }}"
