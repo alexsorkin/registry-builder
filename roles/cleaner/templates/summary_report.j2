@@ -1,4 +1,8 @@
+{% if (images_digests_removal_stats.failed | int) > 0 %}
 ###############################################################
+{% else %}
+##################################################
+{% endif %}
   Registry cleanup summary report:
     Global process definitions:
       Registry cleanup process mode: {{ registry_cleanup_process_mode }}
@@ -13,10 +17,11 @@
       Repositories digests removal success: {{ images_digests_removal_stats.success | int }}
 {% if (images_digests_removal_stats.failed | int) > 0 %}
       * Repositories digests removal failed: {{ images_digests_removal_stats.failed | int }}
+###############################################################
 {% else %}
       Repositories digests removal failed: {{ images_digests_removal_stats.failed | int }}
+##################################################
 {% endif %}
-###############################################################
 {% if (images_digests_removal_stats.failed | int) > 0 %}
 * Note:
     Assuming server allows tags removal;

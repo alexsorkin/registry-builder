@@ -45,21 +45,21 @@
 
 - name: merge tags metadata from secured source
   set_fact:
-    tags_metadata: "{{ tags_metadata_from_secured }}"
+    tags_metadata: "{{ tags_metadata_from_secured | default(omit) }}"
   when:
   - managed_registry_secured
   no_log: True
 
 - name: merge tags metadata from insecured source
   set_fact:
-    tags_metadata: "{{ tags_metadata_from_insecured }}"
+    tags_metadata: "{{ tags_metadata_from_insecured | default(omit) }}"
   when:
   - not managed_registry_secured
   no_log: True
 
 - name: debug retrieved tags metadata colleciton size
   vars:
-    metadata_collection_size: "{{ (tags_metadata.results | list | length) }}"
+    metadata_collection_size: "{{ (tags_metadata.results | default([]) | list | length) }}"
   debug:
     var: metadata_collection_size
 
@@ -71,7 +71,7 @@
       ]
     }}"
   with_items:
-  - "{{ tags_metadata.results }}"
+  - "{{ tags_metadata.results | default([]) | list }}"
   when:
   - ((images_digests_removal_collection | default([]) | list | length) + (unsorted_images_tags_collection | default([]) | list | length) - (managed_repository_keep_tags | int)) < (managed_cleanup_batch_size | int)
   - (item.content | from_json).tag is defined
@@ -79,19 +79,19 @@
 
 - name: debug constructed tags to dates collection size
   vars:
-    tags_to_dates_collection_size: "{{ (unsorted_images_tags_collection | list | length) }}"
+    tags_to_dates_collection_size: "{{ (unsorted_images_tags_collection | default([]) | list | length) }}"
   debug:
     var: tags_to_dates_collection_size
 
 - name: filtering and sorting repos tags array
   set_fact:
-    sorted_images_tags_collection: "{{ (unsorted_images_tags_collection | list | sort(attribute='tag_created'))[:-(managed_repository_keep_tags | int)] | list }}"
+    sorted_images_tags_collection: "{{ (unsorted_images_tags_collection | default([]) | list | sort(attribute='tag_created'))[:-(managed_repository_keep_tags | int)] | list }}"
   when:
   no_log: True
 
 - name: debug constructed filtered tags for digests size
   vars:
-    filtered_tags_collection_size: "{{ (sorted_images_tags_collection | list | length) }}"
+    filtered_tags_collection_size: "{{ (sorted_images_tags_collection | default([]) | list | length) }}"
   debug:
     var: filtered_tags_collection_size
 
