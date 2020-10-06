@@ -19,9 +19,11 @@
   register: tags_metadata_from_secured
   ignore_errors: True
   with_items: "{{ metadata_tags }}"
+  loop_control:
+    index_var: iter_id
   when:
   - managed_registry_secured
-  - ((images_digests_removal_collection | default([]) | list | length) + (tags_metadata_from_secured.results | default([]) | list | length) - (managed_repository_keep_tags | int) - (managed_repository_keep_tags | int)) < (managed_cleanup_batch_size | int)
+  - ((images_digests_removal_collection | default([]) | list | length) + iter_id - 2*(managed_repository_keep_tags | int)) < (managed_cleanup_batch_size | int)
   no_log: True
 
 - name: collect tags metadata from insecured registry
@@ -35,9 +37,11 @@
   register: tags_metadata_from_insecured
   ignore_errors: True
   with_items: "{{ metadata_tags }}"
+  loop_control:
+    index_var: iter_id
   when:
   - not managed_registry_secured
-  - ((images_digests_removal_collection | default([]) | list | length) + (tags_metadata_from_insecured.results | default([]) | list | length) - (managed_repository_keep_tags | int) - (managed_repository_keep_tags | int)) < (managed_cleanup_batch_size | int)
+  - ((images_digests_removal_collection | default([]) | list | length) + iter_id - 2*(managed_repository_keep_tags | int)) < (managed_cleanup_batch_size | int)
   no_log: True
 
 - name: merge tags metadata from secured source
