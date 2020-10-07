@@ -193,7 +193,7 @@
   - check delete images is supported by registry
   - handle registry garbage collection
   when:
-  - ( images_digests_removal_collection | default([]) | list | length ) > 0
+  - (images_digests_removal_collection | default([]) | list | length) > 0
   - not (managed_dry_run_mode | default(False) | bool)
 
 - name: handle accumulated removal digests from insecured
@@ -204,7 +204,7 @@
   - check delete images is supported by registry
   - handle registry garbage collection
   when:
-  - ( images_digests_removal_collection | default([]) | list | length ) > 0
+  - (images_digests_removal_collection | default([]) | list | length) > 0
   - not (managed_dry_run_mode | default(False) | bool)
 
 - name: delete images selected from secured registry

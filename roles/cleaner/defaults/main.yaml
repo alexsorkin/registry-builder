@@ -50,17 +50,21 @@ proprietary_registries_specs:
   base_api_path: /v2
   service_type: systemd
   needs_gc_run: true
+  run_gc_image: registry:2
 - type: harbor
   base_api_path: /v2
-  service_type: systemd
+  service_type: k8s_sts
   needs_gc_run: true
+  run_gc_image: registry:2
 - type: artifactory
   base_api_path: /artifactory/api/docker/{{ managed_registry_name }}/v2
   service_type: systemd
   needs_gc_run: false
+  run_gc_image: jfrog/artifactory:latest
 
 # internal managed registry spec - DO NOT modify
 managed_registry_spec_template:
   base_api_url: "{{ managed_registry_http_url }}{{ (proprietary_registries_specs | list | selectattr('type', 'equalto', managed_registry_type) | list | first).base_api_path }}"
   service_type: "{{ (proprietary_registries_specs | list | selectattr('type', 'equalto', managed_registry_type) | list | first).service_type }}"
-  needs_gc_run: "{{ (proprietary_registries_specs | list | selectattr('type', 'equalto', managed_registry_type) | list | first).needs_gc_run }}"
+  needs_gc_run: "{{ (proprietary_registries_specs | list | selectattr('type', 'equalto', managed_registry_type) | list | first).needs_gc_run | bool }}"
+  run_gc_image: "{{ (proprietary_registries_specs | list | selectattr('type', 'equalto', managed_registry_type) | list | first).run_gc_image | default(omit) }}"
