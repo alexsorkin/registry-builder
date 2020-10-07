@@ -3,6 +3,7 @@
   set_fact:
     unsorted_images_tags_collection: []
     images_digests_tags_collection: []
+    images_tags_collection_base_size: "{{ ((images_digests_removal_collection | default([]) | list | length) - (2 * (managed_repository_keep_tags | int)) | int) }}"
 
 - name: collect tags metadata from secured registry
   vars:
@@ -22,8 +23,8 @@
     index_var: iter_id
   when:
   - managed_registry_secured
-  - ((images_digests_removal_collection | default([]) | list | length) + iter_id - 2*(managed_repository_keep_tags | int)) < (managed_cleanup_batch_size | int)
-  no_log: True
+  - ((images_tags_collection_base_size|int + iter_id|int) | int) < (managed_cleanup_batch_size | int)
+#  no_log: True
 
 - name: collect tags metadata from insecured registry
   vars:
@@ -40,8 +41,8 @@
     index_var: iter_id
   when:
   - not managed_registry_secured
-  - ((images_digests_removal_collection | default([]) | list | length) + iter_id - 2*(managed_repository_keep_tags | int)) < (managed_cleanup_batch_size | int)
-  no_log: True
+  - ((images_tags_collection_base_size|int + iter_id|int) | int) < (managed_cleanup_batch_size | int)
+#  no_log: True
 
 - name: merge tags metadata from secured source
   set_fact:
@@ -57,11 +58,11 @@
   - not managed_registry_secured
   no_log: True
 
-- name: debug retrieved tags metadata colleciton size
+- name: debug inspected tags metadata results size
   vars:
-    metadata_collection_size: "{{ (tags_metadata.results | default([]) | list | length) }}"
+    tags_metadata_results_size: "{{ tags_metadata.results | default([]) | list | length }}"
   debug:
-    var: metadata_collection_size
+    var: tags_metadata_results_size
 
 - name: produce tags array with creation dates
   set_fact:
@@ -77,11 +78,11 @@
   - (item.content | from_json).tag is defined
   no_log: True
 
-- name: debug constructed tags to dates collection size
+- name: debug unsorted tags colleciton size
   vars:
-    tags_to_dates_collection_size: "{{ (unsorted_images_tags_collection | default([]) | list | length) }}"
+    unsorted_tags_colleciton_size: "{{ (unsorted_images_tags_collection | default([]) | list | length) }}"
   debug:
-    var: tags_to_dates_collection_size
+    var: unsorted_tags_colleciton_size
 
 - name: filtering and sorting repos tags array
   set_fact:
@@ -89,7 +90,7 @@
   when:
   no_log: True
 
-- name: debug constructed filtered tags for digests size
+- name: debug filtered tags colleciton size
   vars:
     filtered_tags_collection_size: "{{ (sorted_images_tags_collection | default([]) | list | length) }}"
   debug:
@@ -117,8 +118,7 @@
   with_items: "{{ sorted_images_tags_collection | default([]) | list | batch(10) | list }}"
   when:
   - managed_registry_secured
-  - (sorted_images_tags_collection | default([]) | list | length) > 0
-  no_log: True
+#  no_log: True
 
 - name: collect images digests from insecured registry
   vars:
@@ -134,8 +134,7 @@
   with_items: "{{ sorted_images_tags_collection | default([]) | list | batch(10) | list }}"
   when:
   - not managed_registry_secured
-  - (sorted_images_tags_collection | default([]) | list | length) > 0
-  no_log: True
+#  no_log: True
 
 - name: merge images digests from secured source
   set_fact:

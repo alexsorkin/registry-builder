@@ -1,7 +1,7 @@
 {% if (images_digests_removal_stats.failed | int) > 0 %}
 ###############################################################
 {% else %}
-##################################################
+###################################################
 {% endif %}
   Registry cleanup summary report:
     Global process definitions:
@@ -20,12 +20,12 @@
 ###############################################################
 {% else %}
       Repositories digests removal failed: {{ images_digests_removal_stats.failed | int }}
-##################################################
+###################################################
 {% endif %}
 {% if (images_digests_removal_stats.failed | int) > 0 %}
 * Note:
     Assuming server allows tags removal;
-    Failed removals doesn't mean failure in general,
+    Failed removals are not indicating failure in general,
       the tag may already been removed by previous execution,
       or the tag was dereferenced by rival tag digest removal.
     Garbage collector execution (always) solves the problem.

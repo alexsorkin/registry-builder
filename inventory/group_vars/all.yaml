@@ -1,5 +1,5 @@
 ---
-cleanup_batch_size: 2
+cleanup_batch_size: 1
 repository_keep_tags: 1
 
 catalog_include_patterns:
