@@ -1,0 +1,26 @@
+################################PRODUCE PROCESS REPORT##############################
+---
+- name: handle registry cleanup report processing
+  command: /bin/true
+  notify:
+  - debug digests delete processed results
+  - produce registry cleaner summary stats
+  - produce registry cleaner summary report
+
+- name: debug digests delete processed results
+  debug:
+    var: digests_delete_processed_results
+    verbosity: 3
+
+- name: produce registry cleaner summary stats
+  set_fact:
+    images_digests_removal_total: "{{ images_digests_removal_collection | default([]) | list | length }}"
+    images_digests_removal_stats:
+      success: "{% if not (managed_dry_run_mode | bool) %}{{ digests_delete_processed_results | list | selectattr('failed', 'equalto', False) | list | length }}{% else %}0{% endif %}"
+      failed: "{% if not (managed_dry_run_mode | bool) %}{{ digests_delete_processed_results | list | selectattr('failed', 'equalto', True) | list | length }}{% else %}0{% endif %}"
+
+- name: produce registry cleaner summary report
+  vars:
+    registry_cleanup_process_mode: "{% if (managed_dry_run_mode | bool) %}dry_run{% else %}delete{% endif %}"
+  debug:
+    msg: "{{ (lookup('template', 'summary_report.j2')).split('\n') | list }}"

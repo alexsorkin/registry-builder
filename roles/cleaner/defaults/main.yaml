@@ -12,7 +12,8 @@ default_registry_type: "distribution"
 garbage_collector_enabled: true
 garbage_collector_script: /usr/local/bin/garbage-collector
 garbage_collector_log_dir: /var/log/regstrygc
-garbage_collector_ignore_failures: true
+
+managed_gc_always_run: "{% if (garbage_collector_enabled|bool) %}{{ gc_always_run | default(False) | bool }}{% else %}False{% endif %}"
 
 # managed registry variables values
 managed_registry_type: "{{ registry_type | default(default_registry_type) }}"
@@ -37,6 +38,7 @@ filtered_reposortories_list: []
 images_digests_removal_collection: []
 digests_delete_processed_results: []
 managed_registry_specification: {}
+registry_disabled_delete_method: False
 
 # internal summary variables - DO NOT modify
 images_digests_removal_total: 0
@@ -47,24 +49,22 @@ images_digests_removal_stats:
 # internal registries classes - DO NOT modify
 proprietary_registries_specs:
 - type: distribution
-  base_api_path: /v2
+  docker_api_path: /v2
   service_type: systemd
   needs_gc_run: true
-  run_gc_image: registry:2
 - type: harbor
-  base_api_path: /v2
+  docker_api_path: /v2
   service_type: k8s_sts
   needs_gc_run: true
-  run_gc_image: registry:2
 - type: artifactory
-  base_api_path: /artifactory/api/docker/{{ managed_registry_name }}/v2
+  docker_api_path: /artifactory/api/docker/{{ managed_registry_name }}/v2
   service_type: systemd
-  needs_gc_run: false
-  run_gc_image: jfrog/artifactory:latest
+  needs_gc_run: true
 
 # internal managed registry spec - DO NOT modify
 managed_registry_spec_template:
-  base_api_url: "{{ managed_registry_http_url }}{{ (proprietary_registries_specs | list | selectattr('type', 'equalto', managed_registry_type) | list | first).base_api_path }}"
+  base_api_url: "{{ managed_registry_http_url }}{{ (proprietary_registries_specs | list | selectattr('type', 'equalto', managed_registry_type) | list | first).docker_api_path }}"
   service_type: "{{ (proprietary_registries_specs | list | selectattr('type', 'equalto', managed_registry_type) | list | first).service_type }}"
   needs_gc_run: "{{ (proprietary_registries_specs | list | selectattr('type', 'equalto', managed_registry_type) | list | first).needs_gc_run | bool }}"
-  run_gc_image: "{{ (proprietary_registries_specs | list | selectattr('type', 'equalto', managed_registry_type) | list | first).run_gc_image | default(omit) }}"
+
+jfrog_base_api_url: "{{ managed_registry_http_url }}/artifactory/api"

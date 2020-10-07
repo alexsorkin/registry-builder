@@ -1,0 +1,68 @@
+################################PERFORM ARTIFACTORY GC##############################
+---
+- name: handle artifactory garbage collection
+  command: /bin/true
+  notify:
+  - handle secured artifactory garbage collection
+  - handle insecured artifactory garbage collection
+  when:
+  - ((digests_delete_processed_results | length) > 0) or managed_gc_always_run
+  - not (registry_disabled_delete_method | default(False) | bool)
+
+- name: fire secured artifactory garbage collection
+  command: /bin/true
+  notify:
+  - fire secured artifactory trash bin empty
+  - fire secured artifactory garbage collection
+  when:
+  - managed_registry_secured
+
+- name: fire insecured artifactory garbage collection
+  command: /bin/true
+  notify:
+  - fire secured artifactory trash bin empty
+  - fire secured artifactory garbage collection
+  when:
+  - not managed_registry_secured
+
+- name: fire secured artifactory trash bin empty
+  vars:
+    artifactory_api_url: "{{ jfrog_base_api_url }}"
+  uri:
+    url: "{{ artifactory_api_url }}/trash/empty"
+    method: POST
+    user: "{{ registry_username }}"
+    password: "{{ registry_password }}"
+    force_basic_auth: yes
+  register: trash_bin_empty
+  ignore_errors: yes
+
+- name: fire secured artifactory garbage collection
+  vars:
+    artifactory_api_url: "{{ jfrog_base_api_url }}"
+  uri:
+    url: "{{ artifactory_api_url }}/system/storage/gc"
+    method: POST
+    user: "{{ registry_username }}"
+    password: "{{ registry_password }}"
+    force_basic_auth: yes
+  register: storage_gc
+  ignore_errors: yes
+
+- name: fire insecured artifactory trash bin empty
+  vars:
+    artifactory_api_url: "{{ jfrog_base_api_url }}"
+  uri:
+    url: "{{ artifactory_api_url }}/trash/empty"
+    method: POST
+  register: trash_bin_empty
+  ignore_errors: yes
+
+- name: fire insecured artifactory garbage collection
+  vars:
+    artifactory_api_url: "{{ jfrog_base_api_url }}"
+  uri:
+    url: "{{ artifactory_api_url }}/system/storage/gc"
+    method: POST
+  register: storage_gc
+  ignore_errors: yes

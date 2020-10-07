@@ -27,7 +27,7 @@
 - name: Notify secured digests removal handlers
   command: /bin/true
   notify:
-  - debug first records of accumualted removal collection
+  - debug first 200 records of removal collection
   - handle accumulated removal digests from secured
   when:
   - managed_registry_secured
@@ -35,10 +35,28 @@
 - name: Notify inecured digests removal handlers
   command: /bin/true
   notify:
-  - debug first records of accumualted removal collection
+  - debug first 200 records of removal collection
   - handle accumulated removal digests from insecured
   when:
   - not managed_registry_secured
+
+- name: Notify distribution garbage collectors handlers
+  command: /bin/true
+  notify:
+  - handle distribution garbage collection
+  when:
+  - ((managed_registry_type == 'distribution') | bool)
+  - (managed_registry_specification.needs_gc_run | bool)
+  - (garbage_collector_enabled | bool)
+
+- name: Notify artifactory garbage collectors handlers
+  command: /bin/true
+  notify:
+  - handle artifactory garbage collection
+  when:
+  - ((managed_registry_type == 'artifactory') | bool)
+  - (managed_registry_specification.needs_gc_run | bool)
+  - (garbage_collector_enabled | bool)
 
 - name: Notify cleanup summary report handlers
   command: /bin/true

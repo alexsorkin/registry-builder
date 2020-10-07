@@ -1,0 +1,85 @@
+################################PERFORM DIGEST REMOVAL##############################
+---
+- name: debug first 200 records of removal collection
+  vars:
+    images_digests_removal_records: "{{ (images_digests_removal_collection | default([]) | list | default([]))[-200:] }}"
+  debug:
+    var: images_digests_removal_records
+    verbosity: 1
+
+- name: handle accumulated removal digests from secured
+  command: /bin/true
+  notify:
+  - delete images selected from secured registry
+  - images digests collection processed
+  - register registry disabled delete method
+  - check delete images is supported by registry
+  when:
+  - (images_digests_removal_collection | default([]) | list | length) > 0
+  - not (managed_dry_run_mode | default(False) | bool)
+
+- name: handle accumulated removal digests from insecured
+  command: /bin/true
+  notify:
+  - delete images selected from insecured registry
+  - images digests collection processed
+  - register registry disabled delete method
+  - check delete images is supported by registry
+  when:
+  - (images_digests_removal_collection | default([]) | list | length) > 0
+  - not (managed_dry_run_mode | default(False) | bool)
+
+- name: delete images selected from secured registry
+  vars:
+    registry_api_url: "{{ managed_registry_specification.base_api_url }}"
+  uri:
+    url: "{{ registry_api_url }}/{{ item.repo_name }}/manifests/{{ item.image_digest }}"
+    method: DELETE
+    user: "{{ registry_username }}"
+    password: "{{ registry_password }}"
+    force_basic_auth: yes
+    status_code: 202
+  register: delete_images
+  ignore_errors: yes
+  retries: 1
+  delay: 2
+  until: delete_images is success
+  with_items:
+  - "{{ images_digests_removal_collection | default([]) | list }}"
+#  no_log: True
+
+- name: delete images selected from insecured registry
+  vars:
+    registry_api_url: "{{ managed_registry_specification.base_api_url }}"
+  uri:
+    url: "{{ registry_api_url }}/{{ item.repo_name }}/manifests/{{ item.image_digest }}"
+    method: DELETE
+    status_code: 202
+  register: delete_images
+  ignore_errors: yes
+  retries: 1
+  delay: 2
+  until: delete_images is success
+  with_items:
+  - "{{ images_digests_removal_collection | default([]) | list }}"
+#  no_log: True
+
+- name: images digests collection processed
+  set_fact:
+    digests_delete_processed_results: "{{ delete_images.results }}"
+  when:
+  - (delete_images.results | list | length) > 0
+
+- name: register registry disabled delete method
+  set_fact:
+    registry_disabled_delete_method: True
+  when:
+  - delete_images is failed
+  - "'HTTP Error 405' in (delete_images.results | first).msg"
+  - "'Method Not Allowed' in (delete_images.results | first).msg"
+
+- name: check delete images is supported by registry
+  debug:
+    msg: "Registry has disabled DELETE method, Please add ENV: REGISTRY_STORAGE_DELETE_ENABLED=true to registry runtime"
+  when:
+  - (registry_disabled_delete_method | default(False) | bool)

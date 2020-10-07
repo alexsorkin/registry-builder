@@ -1,0 +1,50 @@
+################################PERFORM DISTRIBUTION GC##############################
+---
+- name: handle distribution garbage collection
+  command: /bin/true
+  notify:
+  - ensure garbage collector log dir
+  - stop registry service for cold gc
+  - execute garbage collector script
+  - start registry service
+  when:
+  - ((digests_delete_processed_results | length) > 0) or managed_gc_always_run
+  - not (registry_disabled_delete_method | default(False) | bool)
+
+- name: ensure garbage collector log dir
+  file:
+    path: "{{ garbage_collector_log_dir }}"
+    state: directory
+    mode: 644
+  register: gc_log_dir_created
+  ignore_errors: True
+  become: yes
+
+- name: stop registry service for cold gc
+  shell: |
+    systemctl stop {{ managed_registry_service }}
+  register: resistry_service_stopped
+  ignore_errors: True
+  when:
+  - gc_log_dir_created is success
+  become: yes
+
+- name: execute garbage collector script
+  vars:
+    gc_log_file: "{{ garbage_collector_log_dir }}/garbage-collector.log"
+  shell: |
+    {{ garbage_collector_script }} 2>&1 1>{{ gc_log_file }} || true
+  ignore_errors: yes
+  when:
+  - gc_log_dir_created is success
+  - resistry_service_stopped is success
+  become: yes
+  no_log: True
+
+- name: start registry service
+  shell: |
+    systemctl start {{ managed_registry_service }}
+  when:
+  - gc_log_dir_created is success
+  - resistry_service_stopped is success
+  become: yes

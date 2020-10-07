@@ -15,7 +15,7 @@
   - include nested per repo tag metadata collector
   when:
   - managed_registry_secured
-  
+
 - name: handle insecured digests collection
   command: /bin/true
   notify:
@@ -68,7 +68,7 @@
 
 - name: debug raw catalog retieval result
   vars:
-    raw_catalog_list_result: "{{ list_repositories.json | from_json }}"
+    raw_catalog_list_result: "{{ list_repositories.json }}"
   debug:
     var: raw_catalog_list_result
     verbosity: 2
@@ -126,7 +126,7 @@
   ignore_errors: yes
   with_items:
   - "{{ filtered_reposortories_list | list | default([]) }}"
-  no_log: True
+#  no_log: True
 
 - name: collect images tags from insecured registry
   vars:
@@ -143,7 +143,7 @@
   ignore_errors: yes
   with_items:
   - "{{ filtered_reposortories_list | list | default([]) }}"
-  no_log: True
+#  no_log: True
 
 - name: extract repos tags maps from retrived json
   set_fact:
@@ -174,162 +174,9 @@
     loop_var: image_repo
   when:
   - (extracted_managed_repos_tags | list | default([]) | length) > 0
-  - (images_digests_removal_collection | default([]) | list | length) < (managed_cleanup_batch_size | int)
+  - ((images_digests_removal_collection | default([]) | list | length) + 1) <= (managed_cleanup_batch_size | int)
 
-################################PERFORM DIGEST REMOVAL##############################
-
-- name: debug first records of accumualted removal collection
-  vars:
-    images_digests_removal_records: "{{ (images_digests_removal_collection | default([]) | list | default([]))[-200:] }}"
-  debug:
-    var: images_digests_removal_records
-    verbosity: 1
-
-- name: handle accumulated removal digests from secured
-  command: /bin/true
-  notify:
-  - delete images selected from secured registry
-  - images digests tried to process
-  - check delete images is supported by registry
-  - handle registry garbage collection
-  when:
-  - (images_digests_removal_collection | default([]) | list | length) > 0
-  - not (managed_dry_run_mode | default(False) | bool)
-
-- name: handle accumulated removal digests from insecured
-  command: /bin/true
-  notify:
-  - delete images selected from insecured registry
-  - images digests tried to process
-  - check delete images is supported by registry
-  - handle registry garbage collection
-  when:
-  - (images_digests_removal_collection | default([]) | list | length) > 0
-  - not (managed_dry_run_mode | default(False) | bool)
-
-- name: delete images selected from secured registry
-  vars:
-    registry_api_url: "{{ managed_registry_specification.base_api_url }}"
-  uri:
-    url: "{{ registry_api_url }}/{{ item.repo_name }}/manifests/{{ item.image_digest }}"
-    method: DELETE
-    user: "{{ registry_username }}"
-    password: "{{ registry_password }}"
-    force_basic_auth: yes
-    status_code: 202
-  register: delete_images
-  ignore_errors: yes
-  retries: 1
-  delay: 2
-  until: delete_images is success
-  with_items:
-  - "{{ images_digests_removal_collection | default([]) | list }}"
-#  no_log: True
-
-- name: delete images selected from insecured registry
-  vars:
-    registry_api_url: "{{ managed_registry_specification.base_api_url }}"
-  uri:
-    url: "{{ registry_api_url }}/{{ item.repo_name }}/manifests/{{ item.image_digest }}"
-    method: DELETE
-    status_code: 202
-  register: delete_images
-  ignore_errors: yes
-  retries: 1
-  delay: 2
-  until: delete_images is success
-  with_items:
-  - "{{ images_digests_removal_collection | default([]) | list  }}"
-#  no_log: True
-
-- name: images digests tried to process
-  set_fact:
-    digests_delete_processed_results: "{{ delete_images.results }}"
-  when:
-  - (delete_images.results | list | length) > 0
-
-- name: check delete images is supported by registry
-  debug:
-    msg: "Registry has disabled DELETE method, Please add ENV: REGISTRY_STORAGE_DELETE_ENABLED=true to registry runtime"
-  failed_when: true
-  when:
-  - delete_images is failed
-  - "'HTTP Error 405' in (delete_images.results | first).msg"
-  - "'Method Not Allowed' in (delete_images.results | first).msg"
-
-- name: handle registry garbage collection
-  command: /bin/true
-  notify:
-  - ensure garbage collector log dir
-  - stop registry service for cold gc
-  - execute garbage collector script
-  - start registry service
-  when:
-  - (managed_registry_specification.needs_gc_run | bool)
-  - (garbage_collector_enabled | bool)
-  - (delete_images is success) or garbage_collector_ignore_failures
-
-- name: ensure garbage collector log dir
-  file:
-    path: "{{ garbage_collector_log_dir }}"
-    state: directory
-    mode: 644
-  register: gc_log_dir_created
-  ignore_errors: True
-  become: yes
-
-- name: stop registry service for cold gc
-  shell: |
-    systemctl stop {{ managed_registry_service }}
-  register: resistry_service_stopped
-  ignore_errors: True
-  when:
-  - gc_log_dir_created is success
-  become: yes
-
-- name: execute garbage collector script
-  vars:
-    gc_log_file: "{{ garbage_collector_log_dir }}/garbage-collector.log"
-  shell: |
-    {{ garbage_collector_script }} 2>&1 1>{{ gc_log_file }} || true
-  ignore_errors: yes
-  when:
-  - gc_log_dir_created is success
-  - resistry_service_stopped is success
-  become: yes
-  no_log: True
-
-- name: start registry service
-  shell: |
-    systemctl start {{ managed_registry_service }}
-  when:
-  - gc_log_dir_created is success
-  - resistry_service_stopped is success
-  become: yes
-
-################################PRODUCE PROCESS REPORT##############################
-
-- name: handle registry cleanup report processing
-  command: /bin/true
-  notify:
-  - debug digests delete processed results
-  - produce registry cleaner summary stats
-  - produce registry cleaner summary report
-
-- name: debug digests delete processed results
-  debug:
-    var: digests_delete_processed_results
-    verbosity: 3
-
-- name: produce registry cleaner summary stats
-  set_fact:
-    images_digests_removal_total: "{{ images_digests_removal_collection | default([]) | list | length }}"
-    images_digests_removal_stats:
-      success: "{% if not (managed_dry_run_mode | bool) %}{{ digests_delete_processed_results | list | selectattr('failed', 'equalto', False) | list | length }}{% else %}0{% endif %}"
-      failed: "{% if not (managed_dry_run_mode | bool) %}{{ digests_delete_processed_results | list | selectattr('failed', 'equalto', True) | list | length }}{% else %}0{% endif %}"
-
-- name: produce registry cleaner summary report
-  vars:
-    registry_cleanup_process_mode: "{% if (managed_dry_run_mode | bool) %}dry_run{% else %}delete{% endif %}"
-  debug:
-    msg: "{{ (lookup('template', 'summary_report.j2')).split('\n') | list }}"
+- import_tasks: delete_digests.yaml
+- import_tasks: artifactory_gc.yaml
+- import_tasks: ditribution_gc.yaml
+- import_tasks: summary_report.yaml
