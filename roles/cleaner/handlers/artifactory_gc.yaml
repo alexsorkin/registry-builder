@@ -3,8 +3,8 @@
 - name: handle artifactory garbage collection
   command: /bin/true
   notify:
-  - handle secured artifactory garbage collection
-  - handle insecured artifactory garbage collection
+  - fire secured artifactory garbage collection
+  - fire insecured artifactory garbage collection
   when:
   - ((digests_delete_processed_results | length) > 0) or managed_gc_always_run
   - not (registry_disabled_delete_method | default(False) | bool)
