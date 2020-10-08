@@ -1,14 +1,14 @@
-Build Development Registry Machine
+Build Registry Machine
 ```shell
 make registry
 ```
 
-Run registry cleaner
+Run Registry Cleaner
 ```shell
 make regclean
 ```
 
-Purge everything
+Purge Everything
 ```shell
 make purge
 ```

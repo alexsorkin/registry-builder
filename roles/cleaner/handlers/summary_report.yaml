@@ -24,3 +24,5 @@
     registry_cleanup_process_mode: "{% if (managed_dry_run_mode | bool) %}dry_run{% else %}delete{% endif %}"
   debug:
     msg: "{{ (lookup('template', 'summary_report.j2')).split('\n') | list }}"
+  changed_when: 
+  - (images_digests_removal_stats.failed | int | default(0)) > 0
